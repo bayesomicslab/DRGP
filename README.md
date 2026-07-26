@@ -207,10 +207,3 @@ from drgp.simulation.evaluate.recovery import support_auprc
 pip install -e ".[dev]"
 pytest tests/
 ```
-
-
-
-## License
-
-A license will be added prior to formal release. Until then, no license is granted; please
-contact the authors regarding use.
