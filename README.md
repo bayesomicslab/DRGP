@@ -208,14 +208,7 @@ pip install -e ".[dev]"
 pytest tests/
 ```
 
-## Citation
 
-If you use DRGP in your research, please cite:
-
-```
-Yasinpoor, T. et al. Disease-Relevant Gene Programs: Supervised Poisson Factorization for
-joint gene-program discovery and phenotype prediction from single-cell RNA-seq. ISMB 2026.
-```
 
 ## License
 
