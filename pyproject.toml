@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drgp"
+version = "0.1.0"
+description = "Disease-Relevant Gene Programs: supervised Poisson factorization for joint gene-program discovery and phenotype prediction"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "pandas>=1.5",
+    "anndata>=0.9",
+    "scikit-learn>=1.2",
+    "matplotlib>=3.6",
+    "h5py>=3.7",
+]
+
+[project.optional-dependencies]
+gpu = ["jax[cuda12]>=0.4.20"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+drgp = "drgp.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["drgp*"]
