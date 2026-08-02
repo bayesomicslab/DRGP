@@ -11,3 +11,7 @@ dist/
 *.tsv.gz
 results/
 cache/
+
+# ship the toy example dataset (built by make_toy_data.py) despite the *.h5ad rule
+!data/toy_sim.h5ad
+!data/toy_sim.gmt

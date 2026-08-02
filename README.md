@@ -115,6 +115,43 @@ For `--mode masked` / `--mode combined`, `--pathway-file` is a GMT file (`PATHWA
 e.g. MSigDB C2/Reactome. Gene symbols are converted to Ensembl IDs to match the expression matrix
 unless `--pathway-genes-ensembl` is set.
 
+## Toy dataset
+
+A small example built from one of the paper's single-cell simulations ships with the repo, so the
+CLI can be exercised without downloading anything:
+
+| file | contents |
+|---|---|
+| `data/toy_sim.h5ad` | 1,600 cells x 666 genes, raw integer counts, 80 patients, 6 cell types (357 KB) |
+| `data/toy_sim.gmt` | the two annotated program supports (87 and 64 genes) |
+
+`obs` carries `label` (patient-inherited binary phenotype), `patient_id`, `cell_type`, `liability`
+and `pi_true`. Gene IDs are Ensembl, so no symbol conversion (and hence no network access) is needed.
+The simulation ground truth is preserved in `uns`, remapped onto the toy's gene axis: `S_ell` (the
+true support of each of the 5 programs), `mask_M` (the 2 annotated supports), `u` (gene loadings),
+`v_star` (per-program liability weights, `[0, 2, -0.7, -2, 0.7]` -- the first program is a nuisance
+program with weight 0) and `theta_star` (per-cell activation). This makes it usable for checking
+program recovery, not just for a smoke test.
+
+```bash
+# de novo
+drgp --data data/toy_sim.h5ad --label-column label --patient-column patient_id \
+     --mode unmasked --n-factors 8 --max-iter 30 --output-dir out/
+
+# pathway-masked (K = number of pathways)
+drgp --data data/toy_sim.h5ad --label-column label --patient-column patient_id \
+     --mode masked --n-factors 2 \
+     --pathway-file data/toy_sim.gmt --pathway-genes-ensembl --max-iter 30 --output-dir out/
+
+# combined: 2 pathway-anchored + 6 de novo factors
+drgp --data data/toy_sim.h5ad --label-column label --patient-column patient_id \
+     --mode combined --n-factors 8 --n-drgps 6 \
+     --pathway-file data/toy_sim.gmt --pathway-genes-ensembl --max-iter 30 --output-dir out/
+```
+
+Rebuild it with `python make_toy_data.py` (requires the full simulation tree; not needed to use the
+shipped copy).
+
 ## Modes
 
 - **`unmasked`** — standard supervised Poisson factorization; all K factors are learned de novo,
