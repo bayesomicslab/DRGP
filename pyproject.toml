@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=64"]   # >=64 for PEP 660 (build_editable / pip install -e)
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -16,6 +16,8 @@ dependencies = [
     "scikit-learn>=1.2",
     "matplotlib>=3.6",
     "h5py>=3.7",
+    "mygene>=3.2",
+    "scanpy>=1.9",
 ]
 
 [project.optional-dependencies]

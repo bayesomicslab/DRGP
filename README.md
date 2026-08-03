@@ -11,15 +11,15 @@ learned de novo from data (see [Modes](#modes)).
 ## Install
 
 ```bash
-pip install -e .
+python -m pip install -e .
 ```
 
 Requires Python >= 3.10. Core dependencies (numpy, scipy, pandas, anndata, scikit-learn,
 matplotlib, h5py) are installed automatically. Optional extras:
 
 ```bash
-pip install -e ".[gpu]"   # jax[cuda12] — GPU-accelerated CAVI
-pip install -e ".[dev]"   # pytest — run the test suite
+python -m pip install -e ".[gpu]"   # jax[cuda12] — GPU-accelerated CAVI
+python -m pip install -e ".[dev]"   # pytest — run the test suite
 ```
 
 The CAVI implementation auto-detects a backend at import time: JAX+GPU > JAX+CPU > NumPy/SciPy.
@@ -27,7 +27,7 @@ The `gpu` extra is optional — everything runs on plain NumPy/SciPy if JAX is a
 
 ## Quickstart: CLI
 
-The `drgp` console script (installed by `pip install -e .`) is a slim load -> fit -> evaluate ->
+The `drgp` console script (installed by `python -m pip install -e .`) is a slim load -> fit -> evaluate ->
 save wrapper. Run without installing via `python -m drgp.cli`; set `PYTHONPATH=.` from the repo
 root if you haven't installed the package.
 
@@ -241,6 +241,6 @@ from drgp.simulation.evaluate.recovery import support_auprc
 ## Testing
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 pytest tests/
 ```

@@ -72,7 +72,6 @@ def get_top_genes_per_program(
     model: Any,
     gene_list: List[str],
     n_top: int = 10,
-    threshold: float = 0.5,
     feature_type: str = 'gene'
 ) -> Dict[str, List[Tuple[str, float]]]:
     """
@@ -86,8 +85,6 @@ def get_top_genes_per_program(
         List of gene/pathway names corresponding to beta rows.
     n_top : int, default=10
         Number of top genes/pathways to return per program.
-    threshold : float, default=0.5
-        Spike-and-slab threshold for considering genes/pathways active.
     feature_type : str, default='gene'
         Type of features ('gene' or 'pathway').
 
@@ -101,8 +98,12 @@ def get_top_genes_per_program(
     for k in range(model.K):
         program_name = f"GP{k+1}"
 
-        # Get gene loadings for this program
+        # Hierarchical score s_gl = E[beta_gl] * E[eta_g]: E[beta] already carries the posterior
+        # inclusion probability, and E[eta] discounts genes that load broadly across programs.
         loadings = model.E_beta[:, k].copy()
+        eta = getattr(model, 'E_eta', None)
+        if eta is not None:
+            loadings = loadings * np.asarray(eta).ravel()
 
         # Get top genes by E[beta] loading
         top_indices = np.argsort(loadings)[::-1][:n_top]
@@ -211,10 +212,9 @@ def plot_training_curves(model, save_dir, fname="training_curves.png"):
         if len(first) >= 5:
             holl_data['bern'] = [e[4] for e in model.holl_history_]
 
-    n_cols = int(has_elbo) + int(has_holl)
-
-    fig, axes = plt.subplots(1, n_cols, figsize=(7 * n_cols, 5),
-                             squeeze=False)
+    # Only the ELBO panel is shown: it is the quantity CAVI actually optimizes and the one a
+    # reader needs to judge convergence. The held-out-LL panel duplicated that story.
+    fig, axes = plt.subplots(1, 1, figsize=(7, 5), squeeze=False)
 
     def _plot_elbo(ax, iters, data, title_suffix=''):
         ax.plot(iters, data['elbo'], 'k-', lw=1.5, marker='.', ms=3,
@@ -255,18 +255,16 @@ def plot_training_curves(model, save_dir, fname="training_curves.png"):
         ax.legend(loc='upper left', fontsize=8)
 
     # ── Skip first point (burn-in) to reveal dynamics ──
-    col = 0
     if has_elbo:
         zoomed = {k: v[1:] for k, v in elbo_data.items()} \
                  if len(elbo_data['iters']) > 2 else elbo_data
-        _plot_elbo(axes[0, col], zoomed['iters'],
+        _plot_elbo(axes[0, 0], zoomed['iters'],
                    {k: zoomed[k] for k in zoomed if k != 'iters'},
                    ' (iter 0 excluded)')
-        col += 1
-    if has_holl:
+    elif has_holl:                      # fall back only if no ELBO was recorded
         zoomed = {k: v[1:] for k, v in holl_data.items()} \
                  if len(holl_data['iters']) > 2 else holl_data
-        _plot_holl(axes[0, col], zoomed['iters'],
+        _plot_holl(axes[0, 0], zoomed['iters'],
                    {k: zoomed[k] for k in zoomed if k != 'iters'},
                    ' (iter 0 excluded)')
 
@@ -432,6 +430,53 @@ def plot_diagnostics(diagnostics, save_dir, fname="diagnostics.png"):
     fig.savefig(save_path, dpi=150, bbox_inches='tight')
     print(f"Diagnostics saved to {save_path}")
     plt.close(fig)
+
+
+def _fmt_v(v: float) -> str:
+    """Format a supervised weight without ever rounding it away.
+
+    Fixed-point display collapses small coefficients to '0.0000', which reads as "this program was
+    switched off" when it was merely shrunk. Anything below 1e-3 is therefore shown in scientific
+    notation instead.
+    """
+    return f"{v:.4f}" if abs(v) >= 1e-3 else f"{v:.2e}"
+
+
+def write_program_dossier(model, gene_list, save_dir, label_names=None,
+                          n_top: int = 50, fname: str = "program_dossier.txt"):
+    """Per-program summary: supervised weight, direction, and top genes by E[beta]*E[eta].
+
+    Programs are ordered by effect-scaled importance I = |v| * sd(theta), which ranks a program by
+    how much it can actually move the predictor rather than by the raw coefficient.
+    """
+    import os
+    import numpy as np
+
+    os.makedirs(str(save_dir), exist_ok=True)
+    top = get_top_genes_per_program(model, gene_list, n_top=n_top)
+    v = np.atleast_2d(np.asarray(getattr(model, "mu_v", np.zeros((1, model.K)))))
+    theta = np.asarray(getattr(model, "E_theta", np.zeros((1, model.K))))
+    sd_theta = theta.std(axis=0) if theta.ndim == 2 and theta.shape[0] > 1 \
+        else np.ones(model.K)
+    names = label_names or [f"outcome{i+1}" for i in range(v.shape[0])]
+
+    imp = np.abs(v[0]) * sd_theta
+    order = np.argsort(-imp)
+    path = os.path.join(str(save_dir), fname)
+    with open(path, "w") as fh:
+        fh.write("DRGP program dossier\n")
+        fh.write("Genes ranked by the hierarchical score s_gl = E[beta_gl] * E[eta_g].\n")
+        fh.write("Programs ordered by effect-scaled importance I = |v| * sd(theta).\n\n")
+        for k in order:
+            fh.write(f"GP{k+1}   importance={_fmt_v(imp[k])}\n")
+            for li, nm in enumerate(names):
+                if li < v.shape[0]:
+                    direction = "risk +" if v[li, k] > 0 else "protective -"
+                    fh.write(f"    v[{nm}] = {_fmt_v(float(v[li, k]))}   ({direction})\n")
+            genes = top.get(f"GP{k+1}", [])
+            fh.write("    top genes: " + ", ".join(g for g, _ in genes) + "\n\n")
+    print(f"Program dossier saved to {path}")
+    return path
 
 
 def save_results(
@@ -776,5 +821,13 @@ def save_results(
        (hasattr(model, 'holl_history_') and model.holl_history_):
         plot_training_curves(model, save_dir=output_dir)
         saved_files['training_curves'] = output_dir / 'training_curves.png'
+
+    # Per-program dossier: top genes by E[beta]*E[eta], supervised weights printed in scientific
+    # notation when small. Guarded so a reporting failure never discards a completed fit.
+    try:
+        write_program_dossier(model, gene_list, output_dir,
+                              label_names=label_columns)
+    except Exception as e:
+        print(f"  [warn] program dossier skipped: {e}")
 
     return saved_files

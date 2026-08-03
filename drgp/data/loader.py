@@ -252,7 +252,7 @@ class DataLoader:
         try:
             import scanpy as sc
         except ImportError:
-            raise ImportError("scanpy is required for loading h5ad files: pip install scanpy")
+            raise ImportError("scanpy is required for loading h5ad files: python -m pip install scanpy")
 
         self._log(f"Loading h5ad file: {self.data_path}")
         self.adata = sc.read_h5ad(str(self.data_path).strip())
