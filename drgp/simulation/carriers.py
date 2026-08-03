@@ -1,9 +1,9 @@
-"""Beta-propensity carrier assignment and single-cell composition.
+"""Beta-propensity carrier assignment (paper Eqs 1-3) and single-cell composition.
 
-    p_g      ~ Beta(alpha, beta)
-    p~_gl    = sigmoid(logit(p_g) + u_gl),  u ~ N(0, sigma_u^2)
-    c_gl     ~ Bernoulli(q0 + (q1-q0) * lam * p~_gl)   disease
-    c_gl     ~ Bernoulli(nuisance_rate)                nuisance
+    p_g      ~ Beta(alpha, beta)                               (Eq 1)
+    p~_gl    = sigmoid(logit(p_g) + u_gl),  u ~ N(0, sigma_u^2) (Eq 2)
+    c_gl     ~ Bernoulli(q0 + (q1-q0) * lam * p~_gl)   disease  (Eq 3)
+    c_gl     ~ Bernoulli(nuisance_rate)                nuisance (Eq 3)
 
 The per-program jitter sigma_u is load-bearing: without it the disease carrier vectors collapse to
 a shared indicator, the programs become collinear, and recovery deflates.
@@ -18,9 +18,9 @@ import numpy as np
 def draw_propensity_carriers(n_units, is_disease, spec, rng, draw_order="matrix"):
     """Draw the (n_units, L) binary carrier matrix and the latent propensity p_g.
 
-    is_disease: length-L booleans; True = disease-relevant (propensity-driven),
+    is_disease : length-L booleans; True = disease-relevant (propensity-driven),
                  False = nuisance (drawn at spec.nuisance_rate, independent of p_g).
-    draw_order: 'matrix' (single-cell) or 'column' (bulk). See module docstring.
+    draw_order : 'matrix' (single-cell) or 'column' (bulk). See module docstring.
     """
     is_disease = np.asarray(is_disease, dtype=bool)
     L = is_disease.size

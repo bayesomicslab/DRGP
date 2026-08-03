@@ -20,11 +20,11 @@ def compute_metrics(
 
     Parameters
     ----------
-    y_true: ndarray
+    y_true : ndarray
         True labels.
-    y_pred: ndarray
+    y_pred : ndarray
         Predicted labels.
-    y_proba: ndarray, optional
+    y_proba : ndarray, optional
         Predicted probabilities for positive class.
 
     Returns
@@ -79,13 +79,13 @@ def get_top_genes_per_program(
 
     Parameters
     ----------
-    model: VI
+    model : VI
         Trained model with E_beta attribute.
-    gene_list: list of str
+    gene_list : list of str
         List of gene/pathway names corresponding to beta rows.
-    n_top: int, default=10
+    n_top : int, default=10
         Number of top genes/pathways to return per program.
-    feature_type: str, default='gene'
+    feature_type : str, default='gene'
         Type of features ('gene' or 'pathway').
 
     Returns
@@ -120,9 +120,9 @@ def print_model_summary(model: Any, gene_list: Optional[List[str]] = None) -> No
 
     Parameters
     ----------
-    model: VI
+    model : VI
         Trained model instance.
-    gene_list: list of str, optional
+    gene_list : list of str, optional
         List of gene names for displaying top genes.
     """
     print("\n" + "=" * 60)
@@ -290,11 +290,11 @@ def plot_diagnostics(diagnostics, save_dir, fname="diagnostics.png"):
 
     Parameters
     ----------
-    diagnostics: dict
+    diagnostics : dict
         The model's diagnostics_ dictionary.
-    save_dir: str or Path
+    save_dir : str or Path
         Directory to save figure.
-    fname: str
+    fname : str
         Filename for the saved figure.
     """
     import matplotlib
@@ -502,42 +502,42 @@ def save_results(
 
     Parameters
     ----------
-    model: VI
+    model : VI
         Trained model instance.
-    output_dir: str or Path
+    output_dir : str or Path
         Directory to save results.
-    gene_list: list of str
+    gene_list : list of str
         List of gene/pathway names.
-    splits: dict
+    splits : dict
         Dictionary with train/val/test cell ID lists.
-    prefix: str, default='vi'
+    prefix : str, default='vi'
         Prefix for output files.
-    save_model: bool, default=True
+    save_model : bool, default=True
         Whether to save the model (essential parameters only by default).
-    compress: bool, default=True
+    compress : bool, default=True
         Whether to compress CSV files with gzip.
-    save_full_model: bool, default=False
+    save_full_model : bool, default=False
         If True, save entire model object. If False (default), save only
         essential parameters to reduce memory during save.
-    feature_type: str, default='gene'
+    feature_type : str, default='gene'
         Type of features ('gene' or 'pathway').
-    optimal_threshold: float or dict, default=0.5
+    optimal_threshold : float or dict, default=0.5
         Optimal classification threshold tuned on validation set.
-    program_names: list of str, optional
+    program_names : list of str, optional
         Custom names for programs/factors (e.g., pathway names). If None,
         defaults to GP1, GP2, etc.
-    mode: str, default='unmasked'
+    mode : str, default='unmasked'
         Model mode ('unmasked', 'masked', or 'pathway_init').
-    label_columns: list of str, optional
+    label_columns : list of str, optional
         Names of label columns (e.g., ['CoVID-19 severity', 'Outcome']).
         Used for naming v_weight columns and gamma rows in output files.
-    aux_columns: list of str, optional
+    aux_columns : list of str, optional
         Names of auxiliary feature columns. Used for naming gamma weight
         columns in output files.
-    val_test_data: dict, optional
+    val_test_data : dict, optional
         Dictionary with validation/test data for inferring theta:
-        {'X_val':..., 'X_aux_val':..., 'X_test':..., 'X_aux_test':...}
-    cell_metadata: DataFrame, optional
+        {'X_val': ..., 'X_aux_val': ..., 'X_test': ..., 'X_aux_test': ...}
+    cell_metadata : DataFrame, optional
         DataFrame indexed by cell ID with metadata columns (e.g. majorType).
         If provided, metadata columns are prepended to theta DataFrames.
 

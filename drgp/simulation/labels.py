@@ -1,4 +1,4 @@
-"""Probit liability-threshold phenotype label.
+"""Probit liability-threshold phenotype label (paper Eqs 5-7).
 
     Z_g   = sum_l upsilon_l * a~_gl              (upsilon-weighted program score)
     ell_g = sqrt(w_z) Z~_g + sqrt(w_s) s~_g + sqrt(1 - w_z - w_s) eps_g

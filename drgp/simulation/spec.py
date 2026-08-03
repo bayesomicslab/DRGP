@@ -32,7 +32,7 @@ class ProgramSpec:
 
 @dataclass
 class PropensitySpec:
-    """Beta-propensity carrier chain."""
+    """Beta-propensity carrier chain (Eqs 1-3)."""
     alpha: float = 2.0
     beta: float = 2.0
     sigma_u: float = 0.5
@@ -64,7 +64,7 @@ class InjectionSpec:
 
 @dataclass
 class LabelSpec:
-    """Probit liability-threshold label."""
+    """Probit liability-threshold label (Eqs 5-7)."""
     w_z: float = 0.3                   # program (transcriptomic) variance share
     w_s: float = 0.0                   # auxiliary (genetic) variance share
     prevalence: float = 0.5

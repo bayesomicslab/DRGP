@@ -4,7 +4,7 @@
 Produces a small, self-contained example that exercises all three DRGP modes:
 
     data/toy_sim.h5ad   1,600 cells x ~700 genes, raw integer counts, patient-grouped,
-                        with the full simulation ground truth in.uns
+                        with the full simulation ground truth in .uns
     data/toy_sim.gmt    the two ANNOTATED program supports, as a pathway file
 
 Design constraints (each one matters):
@@ -16,7 +16,7 @@ Design constraints (each one matters):
     recovery ground truth meaningless.
   * All 80 patients are kept (cells are subsampled within patient), so patient-grouped splitting has
     enough groups to be meaningful and the inherited-label structure is preserved.
-  *.uns truth is REMAPPED to the toy's gene indices, so `S_ell` / `mask_M` still index correctly.
+  * .uns truth is REMAPPED to the toy's gene indices, so `S_ell` / `mask_M` still index correctly.
 
 Source: the high-signal configuration reported in the paper (w_Z=0.7, r=0.30, rho=0.3, truth 0).
 

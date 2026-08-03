@@ -1,6 +1,6 @@
 """Program activity: how carriage becomes per-unit program strength.
 
-Single-cell: a cell is active for program l only if its group carries l, the cell is
+Single-cell (paper Eq. 7): a cell is active for program l only if its group carries l, the cell is
 a responder type for l, and the cell falls in a random rho-fraction of that group's eligible cells.
 Magnitude is Gamma(alpha_b, lambda_b)/mean on top of a theta_base floor.
 
@@ -13,7 +13,7 @@ import numpy as np
 def draw_activity(carriers, unit_to_group, spec, rng, cell_type=None, responder_types=None):
     """Return (n_units, L) float32 activity.
 
-    carriers: (n_groups, L) if single-cell (indexed by unit_to_group), or (n_units, L) for bulk.
+    carriers : (n_groups, L) if single-cell (indexed by unit_to_group), or (n_units, L) for bulk.
     """
     carriers = np.asarray(carriers)
     unit_to_group = np.asarray(unit_to_group)
