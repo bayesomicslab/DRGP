@@ -1,4 +1,4 @@
-"""Factor alignment: match inferred programs to planted ones before scoring recovery."""
+"""Factor alignment: match inferred programs to simulated ones before scoring recovery."""
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 

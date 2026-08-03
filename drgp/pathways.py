@@ -1,9 +1,8 @@
 """Pathway-mask construction for DRGP's masked and combined modes.
 
 Reads a GMT file and returns a binary mask M (n_pathways x n_genes) where M[j, i] = 1 if gene i
-belongs to pathway j. Extracted from the original utils.py; the cache key hashes the GMT PATH AND
-CONTENT, because simulation campaigns regenerate a GMT in place at a stable path and a path-only
-key silently returns a stale parse.
+belongs to pathway j. The cache key hashes the GMT PATH AND CONTENT, because simulation campaigns
+regenerate a GMT in place at a stable path and a path-only key silently returns a stale parse.
 """
 
 import os
@@ -41,9 +40,8 @@ def load_pathways(
     Parameters
     ----------
     gmt_path : str
-        Path to GMT file. Can be the full C2 collection or a pre-filtered
-        subset GMT (e.g. from results/pathway_selections/). Required --
-        no repository-specific default is shipped.
+        Path to GMT file. Can be a full collection (e.g. MSigDB C2) or a
+        pre-filtered subset GMT.
     convert_to_ensembl : bool, default=True
         Convert gene symbols to Ensembl IDs.
     species : str, default='human'
@@ -70,8 +68,7 @@ def load_pathways(
         Path to a text file listing pathway names to keep (one per line),
         or a pre-filtered GMT file. When provided, only pathways whose names
         appear in this file are retained. This is applied before all other
-        filters. Pre-computed selections are available in
-        results/pathway_selections/ (e.g. covid_selected_pathways.txt).
+        filters.
 
     Returns
     -------
@@ -90,10 +87,9 @@ def load_pathways(
         excluded_keywords = ["ADME", "DRUG", "MISCELLANEOUS", "EMT"]
 
     # Cache key based on GMT file (PATH + CONTENT) and conversion settings.
-    # Content must be in the key: the simulation campaigns regenerate pathways.gmt IN PLACE at a
-    # stable path, so a path-only key silently returns a stale parse. Observed 2026-07-20: after
-    # the variable-length-program redesign, masked/combined GTEx fits reused a cached 3x100-gene
-    # mask instead of the new 97/116/123-gene one, driving recovery to chance.
+    # Content must be in the key: simulation campaigns regenerate pathways.gmt IN PLACE at a
+    # stable path, so a path-only key silently returns a stale parse and the fit runs against
+    # the wrong mask.
     _h = hashlib.md5(gmt_path.encode())
     try:
         with open(gmt_path, "rb") as _f:
@@ -237,8 +233,8 @@ def load_pathways(
                   f"{len(pathways)} pathways regardless of data overlap")
         else:
             # Adaptive filtering: different thresholds based on original pathway size
-            # - Small pathways (<500 genes): keep if at least 2 genes in dataset
-            # - Large pathways (>=500 genes): keep if at least half of genes in dataset
+            # - Small pathways: keep if at least MIN_GENES_SMALL genes survive the gene filter
+            # - Large pathways: keep only if their full support survives the gene filter
             SMALL_PATHWAY_THRESHOLD = 100
             MIN_GENES_SMALL = 5
 
@@ -250,13 +246,13 @@ def load_pathways(
                 n_overlap = len(genes)
 
                 if orig_size < SMALL_PATHWAY_THRESHOLD:
-                    # Small pathway: require at least 2 genes
+                    # Small pathway: require at least MIN_GENES_SMALL surviving genes
                     if n_overlap >= MIN_GENES_SMALL:
                         pathways_adaptive[name] = genes
                     else:
                         n_dropped_small += 1
                 else:
-                    # Large pathway: require at least half of genes in dataset
+                    # Large pathway: require the full support to survive
                     required = orig_size
                     if n_overlap >= required:
                         pathways_adaptive[name] = genes

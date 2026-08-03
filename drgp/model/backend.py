@@ -1,4 +1,4 @@
-"""JAX/GPU acceleration backend for SSPA-VI.
+"""JAX/GPU acceleration backend for DRGP.
 
 Auto-detects JAX availability and GPU presence.  Provides a unified
 array namespace ``xp`` and JIT-compiled hot-path functions that fall

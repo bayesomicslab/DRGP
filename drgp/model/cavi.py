@@ -113,11 +113,9 @@ def _is_oom_error(exc: Exception) -> bool:
 # self) so the helpers can be called from either class with identical
 # semantics. See _compute_elbo / _compute_elbo_hier for usage.
 #
-# Numerical equivalence with the pre-refactor inline code is verified by
-# tmp/elbo_refactor/smoke.py before/after — relative discrepancy ≤ fp32
-# noise (~1e-6). Do NOT introduce clips/floors here that aren't in the
-# original blocks — do not add bound/clip patches to fix saturation symptoms;
-# the fix is the prior<->data precision balance, not more floors.
+# Do NOT introduce clips or floors here beyond the ones already present:
+# bound/clip patches do not fix saturation symptoms, the prior<->data
+# precision balance does.
 # =====================================================================
 
 def _elbo_poisson_recon(*, a_theta, b_theta, E_log_beta, E_beta,
@@ -207,12 +205,12 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
                      use_spike_slab, pw_active, r_beta,
                      a_pi, b_pi, alpha_pi, beta_pi):
     """Slab Gamma prior on β̃ + (spike-slab π, m, Beta-π entropy + m entropy)
-    + slab Gaussian-Gamma entropy. Eqs. 46-48, 55-57 of the paper.
+    + slab Gaussian-Gamma entropy.
     """
     _E_log_beta_raw = digamma(a_beta) - xp.log(b_beta)
     _E_beta_raw = a_beta / b_beta
 
-    # Gamma prior on slab beta_tilde (Eq. 48 — NOT weighted by rho)
+    # Gamma prior on the slab beta_tilde — NOT weighted by rho
     _beta_prior_terms = ((c_prior - 1) * _E_log_beta_raw
                          + c_prior * E_log_eta[:, None]
                          - E_eta[:, None] * _E_beta_raw)
@@ -224,7 +222,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         out = out - p * K * gammaln(c_prior)
 
     if use_spike_slab:
-        # Beta prior on pi_j (Eq. 46) — per-gene
+        # Beta prior on the per-gene inclusion rate pi_j
         _E_log_pi = digamma(a_pi) - digamma(a_pi + b_pi)
         _E_log_1mpi = digamma(b_pi) - digamma(a_pi + b_pi)
         out = out + xp.sum((alpha_pi - 1) * _E_log_pi
@@ -232,7 +230,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         out = out - p * (gammaln(alpha_pi) + gammaln(beta_pi)
                          - gammaln(alpha_pi + beta_pi))
 
-        # Bernoulli prior on m (Eq. 47) — free factors only
+        # Bernoulli prior on the inclusion indicators m — free factors only
         _m_prior = (r_beta * _E_log_pi[:, None]
                     + (1.0 - r_beta) * _E_log_1mpi[:, None])
         if pw_active is not None:
@@ -243,7 +241,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         else:
             out = out + xp.sum(_m_prior)
 
-        # Entropy of q(m_{jk}) = Bernoulli(r_{jk}) (Eq. 56) — free factors only
+        # Entropy of q(m_{jk}) = Bernoulli(r_{jk}) — free factors only
         _r_clip = xp.clip(r_beta, 1e-7, 1 - 1e-7)
         _m_entropy = (_r_clip * xp.log(_r_clip)
                       + (1 - _r_clip) * xp.log(1 - _r_clip))
@@ -255,7 +253,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         else:
             out = out - xp.sum(_m_entropy)
 
-        # Entropy of q(pi_j) = Beta(a_pi_j, b_pi_j) (Eq. 57) — per-gene
+        # Entropy of q(pi_j) = Beta(a_pi_j, b_pi_j) — per-gene
         _H_pi = (gammaln(a_pi) + gammaln(b_pi)
                   - gammaln(a_pi + b_pi)
                   - (a_pi - 1) * digamma(a_pi)
@@ -263,7 +261,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
                   + (a_pi + b_pi - 2) * digamma(a_pi + b_pi))
         out = out + xp.sum(_H_pi)
 
-    # Entropy of q(beta_tilde_{jk}) — NOT weighted by rho (Eq. 55)
+    # Entropy of q(beta_tilde_{jk}) — NOT weighted by rho
     _psi_a_beta = digamma(a_beta)
     _beta_entropy = (a_beta - xp.log(b_beta)
                      + gammaln(a_beta)
@@ -299,7 +297,7 @@ def _elbo_eta_block(*, E_log_eta, E_eta, a_eta, b_eta, gammaln_a_eta_cached,
 
 
 def _elbo_v_block(*, mu_v, sigma_v_diag, b_v):
-    """Bayesian-Lasso block of the ELBO (MD §11.3, PDF below A.14).
+    """Bayesian-Lasso block of the ELBO.
 
     Uses the *collapsed* Laplace route:
 
@@ -309,10 +307,9 @@ def _elbo_v_block(*, mu_v, sigma_v_diag, b_v):
     drops the s, log s bookkeeping (no IG/GIG entropy needed) while
     leaving the augmentation implicit. q(υ) Gaussian entropy is added.
 
-    Correctness note (MD §13.1): the previous form used the spurious
-    two-term E[s⁻¹] = 1/(b_v·ω) + 1/ω², which assumed *s* itself were
-    inverse-Gaussian. In fact only the precision 1/s is IG, so E[s⁻¹] is
-    a single IG mean. The collapsed route here sidesteps the issue.
+    Correctness note: only the precision 1/s is inverse-Gaussian, not s
+    itself, so E[s⁻¹] is a single IG mean and not the two-term expansion
+    1/(b_v·ω) + 1/ω². The collapsed route here sidesteps the issue entirely.
     """
     # Folded-normal mean of υ_kℓ ~ N(μ, τ²).
     tau = xp.sqrt(xp.maximum(sigma_v_diag, 1e-12))
@@ -332,7 +329,7 @@ def _elbo_v_block(*, mu_v, sigma_v_diag, b_v):
 
 
 def _elbo_gamma_aux_block(*, mu_gamma, Sigma_gamma, sigma_gamma, kappa, p_aux):
-    """γ Gaussian prior + entropy (Eq. 53)."""
+    """γ Gaussian prior + entropy."""
     if p_aux <= 0:
         return 0.0
     sigma_gamma_sq = sigma_gamma ** 2
@@ -408,8 +405,8 @@ class CAVI:
         regression_design: str = "raw",
         pathway_prior_lambda: float = 0.0,   # default OFF: the soft inclusion prior is
         # ineffective in this data-dominated regime (rho gives at most a ~2x tilt to phi,
-        # which theta dominates; recovery still washes out at iter 1 for any lambda -- see
-        # the pathway_init investigation). Kept as an opt-in experimental knob only.
+        # which theta dominates, and recovery washes out at iter 1 for any lambda).
+        # Kept as an opt-in experimental knob only.
         **_ignored,
     ):
         self.K = n_factors
@@ -422,23 +419,22 @@ class CAVI:
         self.regression_weight = regression_weight
         # Weight applied to the supervised correction in the PARAMETER UPDATES
         # (θ rate-shift R_lin/R_quad, υ, γ data terms) and the ELBO L_sup term.
-        #   "one" -> natural weight 1 (DEFAULT), as in DRGP_VI_full_derivation.md Eq 8.1-8.2
-        #            (no tempering anywhere in the derivation) and the JJ predecessor.
-        #   "rw"  -> LEGACY: auto-scaled regression_weight (= nnz/n). DIVERGES on dense/large
+        #   "one" -> natural weight 1 (DEFAULT): the untempered derivation weight.
+        #   "rw"  -> auto-scaled regression_weight (= nnz/n). DIVERGES on dense/large
         #            data: R_lin overwhelms b_poisson and floors b_theta -> θ/γ blow up
-        #            (verified on bulk GTEx WB, nnz/n=4868: ELBO sawtooth, γ->±100, train AUC
-        #            ~chance). Kept only for the bounded-rw sweep / reproducing old results.
+        #            (ELBO sawtooth, γ -> ±100, train AUC ~chance). Kept only for the
+        #            bounded-rw sweep.
         self._sup_update_weight = supervised_update_weight
         self._sup_w = float(regression_weight)  # finalized in fit() after auto-scale
         # When False, skip the in-loop data-precision calibration of b_v and keep
         # it fixed at the CLI value (avoids the init-θ miscalibration that freezes
-        # v when there is no Poisson warmup). See Plan A "Fix 2".
+        # v when there is no Poisson warmup).
         self._calibrate_bv_enabled = calibrate_b_v
-        # Regression design (Plan A). "raw": logit A = θ·v + aux (θ doubles as
+        # Regression design. "raw": logit A = θ·v + aux (θ doubles as
         # Poisson loading + regression design — scale-coupled). "normalized":
         # A = s·v + aux with s = θ/‖θ‖₁ on the simplex, so supervision shapes
         # program DIRECTION not magnitude (severs the memorization/divergence
-        # channel). See docs/PLAN_A_normalized_design_FUTURE_WORK.md.
+        # channel).
         self._regression_design_mode = regression_design
         self.use_class_weights = use_class_weights
 
@@ -454,7 +450,7 @@ class CAVI:
         self._beta_pi_scale = beta_pi_scale  # resolved to K in _initialize
         # pathway_init soft prior: persistent pseudo-count (nats) added to the spike-and-slab
         # inclusion log-odds for pathway carrier genes on the pathway factors EVERY iteration
-        # (Eq. A.6). Unlike the transient a_beta warm-start (overwritten by the first slab
+        # Unlike the transient a_beta warm-start (overwritten by the first slab
         # update), this survives because r_beta re-enters phi each sweep. lambda=0 -> unmasked;
         # large lambda -> inclusion forced on pathway genes (approaches masked support).
         self.pathway_prior_lambda = float(pathway_prior_lambda)
@@ -634,7 +630,7 @@ class CAVI:
 
         # --- spike-and-slab on beta ---
         if self.use_spike_slab:
-            # pi_j is per-GENE (Eq. 7: pi_j ~ Beta(alpha_pi, beta_pi)), shape (p,).
+            # pi_j ~ Beta(alpha_pi, beta_pi) is per-GENE, shape (p,).
             # Controls how many programs each gene participates in.
             self.beta_pi = (self._beta_pi_scale if self._beta_pi_scale is not None
                             else max(1.0, float(K) / 10.0 - self.alpha_pi))
@@ -706,8 +702,8 @@ class CAVI:
             self.Sigma_gamma = np.zeros((self.kappa, 0, 0))
 
         # --- PG-CAVI augmentation tilt ---
-        # c_pg[i,k] = sqrt(E[A_ik^2]) (notation `c` in PG_CAVI_implementation_notes.md
-        # §3.6; suffix `_pg` avoids collision with the gamma-prior scalar self.c).
+        # c_pg[i,k] = sqrt(E[A_ik^2]), the Polya-Gamma tilt (the `_pg` suffix
+        # avoids collision with the gamma-prior scalar self.c).
         # wbar[i,k] = omega_bar(c_pg[i,k]) — deterministic PG variational mean.
         # Init: c_pg = 0 so wbar = omega_bar(0) = 1/4 (Taylor branch of omega_bar).
         self.c_pg = np.zeros((self.n, self.kappa), dtype=np.float32)
@@ -885,13 +881,13 @@ class CAVI:
             else:
                 mask_part = np.hstack([pm, np.zeros((self.p, npath - pm.shape[1]))])
             self.beta_mask[:, :npath] = mask_part
-            # Complementary masking (2026-06-14): exclude the free de-novo factors
-            # from the annotated-pathway genes. Without this, the free factors'
+            # Complementary masking: exclude the free de-novo factors from the
+            # annotated-pathway genes. Without this, the free factors'
             # large theta wins the multinomial phi allocation on pathway genes even
             # with tiny beta, starving the pathway factors -> their theta collapses
-            # (~3 vs ~800 in pure masked) and beta is under-determined, so combined
-            # recovered pathways WORSE than masked (0.287 vs 0.399), violating the
-            # combined>=masked containment. Restricting free support to the pathway
+            # by orders of magnitude relative to pure masked and beta is
+            # under-determined, so combined recovers pathways WORSE than masked,
+            # violating the combined>=masked containment. Restricting free support to the pathway
             # complement makes pathway-gene counts flow exclusively to the pathway
             # factors (matching masked) while free factors model the de-novo/
             # background complement. Uses mask_part (the pathways actually assigned
@@ -992,7 +988,7 @@ class CAVI:
             # the entry alive.  Setting E_log_beta = -inf gives phi = 0
             # exactly (same mechanism as pathway masking).
             _slab_log = _dig_beta - xp.log(self.b_beta)
-            # Continuous log(rho) penalty per Eq. 21 — no hard threshold.
+            # Continuous log(r_beta) inclusion penalty — no hard threshold.
             # Pathway factors in combined mode: no r penalty (deterministic r=1)
             if self._pw_active is not None:
                 r_for_log = xp.where(self._pw_active, 1.0, self.r_beta)
@@ -1233,18 +1229,18 @@ class CAVI:
 
         if median_dp > 0:
             b_v_new = 1.0 / max(v_crossover * median_dp, 1e-6)
-            # Cap relative to user-specified b_v. The old [1e-4, 10.0] cap let
-            # weak-data factors (tiny median_dp) push b_v up to 10, yielding a
-            # near-vanishing prior precision (1/b_v^2 ≈ 0.01). That made
-            # sigma_v_diag balloon (~50), widened delta_v = 3·sqrt(sigma_v)
-            # past the under-relaxation budget, and seeded the period-1 CAVI
-            # oscillation seen in Reg at ramp=1. Bounding the rescale to 2×
-            # the user value keeps prior–data precision balance intact.
-            # Lower clip raised from 1e-4 to 1e-2: with b_v=1e-4 the trust
-            # region delta_v = 3·sqrt(sigma_v_floor) = 3·sqrt(0.01·b_v²) = 3e-5
-            # freezes v entirely. Gamma then absorbs all regression signal and
-            # drifts unboundedly. Floor at 1e-2 keeps delta_v ≥ 3e-3, enough
-            # for v to reach reasonable magnitudes within ramp_iters=200.
+            # Both clips are load-bearing for the prior-data precision balance.
+            # Upper: bounding the rescale to 2× the user-specified b_v stops
+            # weak-data factors (tiny median_dp) from driving b_v up until the
+            # prior precision 1/b_v^2 nearly vanishes, which balloons
+            # sigma_v_diag, widens delta_v = 3·sqrt(sigma_v) past the
+            # under-relaxation budget, and seeds a period-1 CAVI oscillation in
+            # Reg at ramp=1.
+            # Lower: below ~1e-2 the trust region delta_v =
+            # 3·sqrt(sigma_v_floor) = 3·sqrt(0.01·b_v²) freezes v entirely,
+            # gamma then absorbs all regression signal and drifts unboundedly.
+            # A floor at 1e-2 keeps delta_v ≥ 3e-3, enough for v to reach
+            # reasonable magnitudes within ramp_iters=200.
             b_v_new = float(np.clip(b_v_new, 1e-2, 2.0 * self.b_v))
             print(f"  [Laplace] b_v auto-calibrated: {self.b_v:.6f} -> "
                   f"{b_v_new:.6f}  (median_data_prec_per_cell={median_dp:.4f}, "
@@ -1266,7 +1262,7 @@ class CAVI:
             i1 = min(i0 + self._row_chunk, self.n)
             theta_sum = theta_sum + (self.a_theta[i0:i1] / self.b_theta[i0:i1]).sum(axis=0)
 
-        # Slab update (Eq. 23)
+        # Slab shape/rate update for beta_tilde
         new_a = self.c + z_sum_beta
         if self.use_spike_slab:
             # Pathway factors in combined mode use r=1 (not learned r_beta)
@@ -1281,12 +1277,12 @@ class CAVI:
         new_a = xp.maximum(new_a, 1e-6)
         new_b = xp.maximum(new_b, 1e-6)
 
-        # Cap E[beta] to prevent eta-beta collapse in masked mode where
-        # a_eta is weak (cp + m_j*c ≈ 1.66). Combined was previously also
-        # capped, but that forced the theta-beta scale split asymmetrically
-        # vs unmasked: combined's θ became huge → data_prec huge → b_v
-        # auto-calibrated tiny → v frozen at init. Unmasked has no cap and
-        # the eta-beta collapse is mitigated by the bp/dp ceiling instead.
+        # Cap E[beta] to prevent eta-beta collapse in masked mode, where
+        # a_eta is weak (cp + m_j*c ≈ 1.66). Masked only: capping combined too
+        # would force its theta-beta scale split asymmetrically vs unmasked
+        # (combined's θ blows up → data_prec huge → b_v auto-calibrated tiny →
+        # v frozen at init). Unmasked needs no cap because the bp/dp ceiling
+        # already mitigates the eta-beta collapse.
         if self.mode == 'masked':
             beta_cap = 500.0
             new_b = xp.maximum(new_b, new_a / beta_cap)
@@ -1307,11 +1303,11 @@ class CAVI:
         a^eta_j = c' + m_j * c where m_j is the number of active factors
         for gene j (= K when no mask is applied).
         """
-        # a_eta is constant = cp + K*c (Eq. 29: eta governs the slab
-        # regardless of inclusion, so no rho-weighting).
-        # a_eta is set once in _initialize and never changes.
-        # b_eta uses raw slab E[beta_tilde] = a_beta/b_beta, NOT weighted
-        # by r_beta (Eq. 29: eta governs slab regardless of inclusion).
+        # a_eta is constant = cp + K*c: eta governs the slab regardless of
+        # inclusion, so there is no r_beta weighting. It is set once in
+        # _initialize and never changes.
+        # b_eta likewise uses the raw slab E[beta_tilde] = a_beta/b_beta,
+        # NOT weighted by r_beta.
         E_beta_slab = self.a_beta / self.b_beta  # raw slab expectations
         if self._active_beta is not None:
             self.b_eta = self.dp + xp.where(
@@ -1328,8 +1324,8 @@ class CAVI:
         self.b_eta = xp.maximum(self.b_eta, self.dp)
 
     def _update_r_beta(self, z_sum_beta, theta_col_sum):
-        """Update spike-and-slab inclusion probabilities r_{jk} (Eq. 26)."""
-        # Exact CAVI update (Eq. 26): log-odds = prior odds + Poisson slab evidence.
+        """Update spike-and-slab inclusion probabilities r_{jk}."""
+        # Exact CAVI update: log-odds = prior odds + Poisson slab evidence.
         # Beta_tilde prior and entropy cancel between m=1 and m=0 (the slab
         # variable exists regardless of inclusion), so only Poisson terms remain.
         E_log_beta = digamma(self.a_beta) - xp.log(self.b_beta)
@@ -1340,13 +1336,13 @@ class CAVI:
         log_lik_on = (z_sum_beta * E_log_beta
                       - E_beta_raw * theta_col_sum[None, :])
 
-        # Prior log-odds from pi_j (Eq. 26) — pi is per-GENE, shape (p,)
+        # Prior log-odds from pi_j — pi is per-GENE, shape (p,)
         E_log_pi = digamma(self.a_pi) - digamma(self.a_pi + self.b_pi)      # (p,)
         E_log_1mpi = digamma(self.b_pi) - digamma(self.a_pi + self.b_pi)    # (p,)
 
         log_odds = E_log_pi[:, None] - E_log_1mpi[:, None] + log_lik_on    # (p, K)
         # pathway_init soft prior: persistent inclusion pseudo-count on pathway carriers /
-        # pathway factors (Eq. A.6). Survives the data-dominated slab update because it is
+        # pathway factors. Survives the data-dominated slab update because it is
         # re-applied here every sweep, unlike the transient a_beta warm-start.
         if self._pathway_prior is not None:
             log_odds = log_odds + xp.asarray(self._pathway_prior)
@@ -1361,7 +1357,7 @@ class CAVI:
         if self._pw_active is not None:
             self.r_beta = xp.where(self._pw_active, 1.0, self.r_beta)
 
-        # Update pi posterior (Eq. 27) — count only free factors
+        # Update the q(pi_j) Beta posterior — count only free factors
         if self._npath > 0:
             npath = self._npath
             r_sum = self.r_beta[:, npath:].sum(axis=1)
@@ -1382,7 +1378,7 @@ class CAVI:
             b^2 - b_base*b - c_quad*a_theta = 0
             b = (b_base + sqrt(b_base^2 + 4*c_quad*a_theta)) / 2
         derived from ∂L/∂b'=0 for q(θ_iℓ)=Gamma(a_full,b') against the PG-
-        augmented log q* (see vi_pg_kernel.pg_R_correction docstring). The
+        augmented log q* (see pg_kernel.pg_R_correction's docstring). The
         c_quad here is `ω̄·E[v²]`, i.e. 2× the bare θ² coefficient in log q*.
         which is always positive (given c_quad >= 0, guaranteed by wbar >= 0).
 
@@ -1403,12 +1399,13 @@ class CAVI:
         # with rw·R_quad multiplying a_theta inside the discriminant.
         # rw is selected on validation (patient-grouped AUC); rw=1 with auto-scale
         # gives effective ≈ nnz/n, which is ~10× below p — supervision near-dormant.
-        # See vi_pg_kernel.py docstring for the tempering rationale (sLDA / supervised
-        # PF up-weighting; power-posterior likelihood for O(np)-vs-O(nκ) balance).
+        # See pg_kernel.py's module docstring for the tempering rationale (sLDA /
+        # supervised PF up-weighting; power-posterior likelihood for the
+        # O(np)-vs-O(nκ) balance).
         E_theta_full = self.a_theta / self.b_theta
         effective_rw = ramp * self._sup_w
         if self._regression_design_mode == "normalized":
-            # Plan A: θ-rate on the simplex design s=θ/T via the chain-rule
+            # θ-rate on the simplex design s=θ/T via the chain-rule
             # sensitivity G=(v−P)/T (forms s/T/P from raw θ internally).
             R_lin, R_quad, self._row_chunk = pg_R_correction_normalized(
                 E_theta=E_theta_full,
@@ -1486,8 +1483,8 @@ class CAVI:
         """Map (E[θ], Var[θ]) to the regression design used in the logit.
 
         'raw' → identity. 'normalized' → simplex s = θ/T with
-        Var(s) ≈ Var(θ)/T² (literal θ→s, T frozen; the (1−s)²/cross-factor
-        terms are dropped — see Plan A doc caveat). Shared by training callers
+        Var(s) ≈ Var(θ)/T² (literal θ→s with T frozen; the (1−s)²/cross-factor
+        terms are dropped, so this is an approximation). Shared by training callers
         and the eval/predict paths so train and test use the SAME design.
         """
         if self._regression_design_mode == "normalized":
@@ -1607,10 +1604,10 @@ class CAVI:
         # === Supervised LL (tempered ELBO) — delegated to pg_Lsup ===
         # ELBO is the tempered objective L = E[log p(X|θ,β)] + (ramp·rw)·E[log p(y|θ,υ,γ)]
         # + log-priors - entropy. pg_Lsup returns the raw L_sup; we multiply by ramp·rw.
-        # (Fix 3: ELBO uses the SAME ramp·rw weight the updates use, so the printed
-        #  ELBO is exactly the objective being ascended — otherwise the onset of
-        #  regression at full rw injects a spurious drop and breaks the monotonicity
-        #  detector during the ramp. ramp is 0 during Poisson warmup → L_sup off.)
+        # The ELBO uses the SAME ramp·rw weight the updates use, so the printed
+        # ELBO is exactly the objective being ascended — otherwise the onset of
+        # regression at full rw injects a spurious drop and breaks the monotonicity
+        # detector during the ramp. ramp is 0 during Poisson warmup → L_sup off.
         E_theta_full, Var_theta_full = self._regression_design()
         regression_ll_raw, self._row_chunk = pg_Lsup(
             E_design=E_theta_full,
@@ -1730,7 +1727,7 @@ class CAVI:
             np.asarray(X_aux_val, dtype=np.float32), n=n_val)
         X_aux_v_dev = to_device(X_aux_val)
 
-        # Validation fold-in: unsupervised (Algorithm 2 / Eq. A.17).
+        # Validation fold-in is label-blind (Poisson-only, no supervised correction).
         a_theta_v, b_theta_v = self._infer_theta_sparse(
             X_val_coo, n_val, n_iter, X_aux_new=X_aux_v_dev,
             supervised=False)
@@ -1783,7 +1780,7 @@ class CAVI:
                 E_A = E_A + X_aux_v_dev @ self.mu_gamma.T
 
             E_v_sq = self.mu_v ** 2 + self.sigma_v_diag
-            # Full E[A²] decomposition (matches pg_Lsup / PDF Eq. A.15):
+            # Full E[A²] decomposition (matches pg_Lsup):
             # (E[A])² + Σ_ℓ[Var(θ)·E[υ²] + E[θ]²·τ²_υ] + x_aux^T Σ_γ x_aux.
             E_A_sq = (
                 E_A ** 2
@@ -1914,7 +1911,7 @@ class CAVI:
                       f"nnz/n={self._nnz}/{self.n} = {self.regression_weight:.1f}")
 
         # Resolve the weight actually used in updates + ELBO L_sup (see __init__).
-        #   "one" -> 1.0 (derivation weight); "rw" -> auto-scaled nnz/n (old);
+        #   "one" -> 1.0 (derivation weight); "rw" -> auto-scaled nnz/n;
         #   <float> -> that absolute weight (for the bounded-rw sweep).
         _sw = self._sup_update_weight
         if _sw == "one":
@@ -2107,16 +2104,15 @@ class CAVI:
                       f"({100*n_active/n_total:.1f}%) mean_r={mean_r:.4f} "
                       f"genes_in_>1_prog={genes_multi}")
 
-            # 2b. Rescale factors — DISABLED.
-            # _rescale_factors() is not a valid CAVI coordinate-ascent step:
-            # it modifies b_theta, b_beta, mu_v, sigma_v_diag simultaneously
+            # 2b. No factor rescaling. _rescale_factors() is deliberately not
+            # called here: it is not a valid CAVI coordinate-ascent step, since
+            # it modifies b_theta, b_beta, mu_v and sigma_v_diag simultaneously
             # without optimizing any variational objective, breaking ELBO
-            # monotonicity.  The clipping of s_theta to [0.5, 2.0] followed
-            # by s_beta = 1/s_theta also breaks the invariant theta*beta
-            # when clipping activates.  Empirically this causes sigma2_v
-            # collapse (divided by s_theta^2 every iteration) and ELBO
-            # divergence after ~25 iterations.
-            # self._rescale_factors()
+            # monotonicity.  Clipping s_theta to [0.5, 2.0] and then setting
+            # s_beta = 1/s_theta also breaks the theta*beta invariant whenever
+            # the clip activates, which collapses sigma2_v (divided by
+            # s_theta^2 every iteration) and diverges the ELBO within ~25
+            # iterations.  Scale is handled by the hierarchical xi/eta priors.
             self._refresh_log_caches()  # still needed: beta/eta just changed
 
             # 3. Update theta, xi
@@ -2125,7 +2121,7 @@ class CAVI:
             ramp_iters = 200
             # ramp is 0 during the Poisson-only warmup (t < v_warmup); the ELBO's
             # L_sup term is then weighted ramp·rw = 0, matching the Poisson-only
-            # updates so the printed ELBO stays the ascended objective (Fix 3).
+            # updates so the printed ELBO stays the ascended objective.
             ramp = 0.0
             if t == v_warmup:
                 # _calibrate_b_v measures data precision from the CURRENT E[θ]; if
@@ -2244,7 +2240,7 @@ class CAVI:
                         print(f"  [WARN t={t}] ELBO DECREASED by {delta:.4e} "
                               f"({prev_elbo:.4e} -> {elbo:.4e})")
 
-                # --- Diagnostics: θ train norms, ζ saturation ---
+                # --- Diagnostics: θ train norms, PG tilt (c_pg) and wbar ---
                 _theta_l1_chunks = []
                 for _i0 in range(0, self.n, self._row_chunk):
                     _i1 = min(_i0 + self._row_chunk, self.n)
@@ -2444,10 +2440,10 @@ class CAVI:
         # Mode-aware: only the held-out-LL path (with a validation set) and its
         # no-val training-Reg fallback restore an earlier checkpoint. In 'elbo'
         # mode we KEEP the final converged state: the ELBO is the monotone
-        # objective (Fix 3), so the final iterate is the best, and best_reg_params
+        # objective, so the final iterate is the best, and best_reg_params
         # is a pre-supervision checkpoint at weight 1 (raw training Reg peaks
         # before the ramp engages, then drifts) — restoring it would discard all
-        # supervision. See sim-harness diagnosis 2026-06-10.
+        # supervision.
         if early_stopping == 'heldout_ll':
             if best_holl_params is not None:
                 if verbose:
@@ -2512,17 +2508,15 @@ class CAVI:
                             supervised=False):
         """Infer theta for new data using chunked sparse phi.
 
-        Default (``supervised=False``): Poisson-only fold-in per PDF
-        Algorithm 2 / Eq. (A.17). Since y_new is absent, R_iℓ = 0 and the
-        rate reduces to b_θ = E[ξ] + Σ_j ρ_jℓ E[β̃_jℓ]. No PG variables
-        are required for fold-in. This is the documented, label-blind path
-        for inductive evaluation.
+        Default (``supervised=False``): Poisson-only fold-in. Since y_new is
+        absent, R_iℓ = 0 and the rate reduces to
+        b_θ = E[ξ] + Σ_j ρ_jℓ E[β̃_jℓ]. No PG variables are required for
+        fold-in. This is the label-blind path for inductive evaluation.
 
         ``supervised=True`` keeps the PG-CAVI supervised quadratic that
         couples test θ to the trained υ (via E[υ²]) even without y_new —
-        a label leak (see MEMORY: "DRGP θ label-leak"). Off by default;
-        keep only for diagnostics that intentionally trace training-regime
-        θ shaping.
+        a label leak. Off by default; keep only for diagnostics that
+        intentionally trace training-regime θ shaping.
 
         Returns a_theta, b_theta.
         """
@@ -2579,7 +2573,7 @@ class CAVI:
                 theta_v = E_theta @ E_v.T                     # (n_new, kappa)
                 if X_aux_new is not None and self.p_aux > 0:
                     theta_v = theta_v + X_aux_new @ self.mu_gamma.T
-                # E[A^2]: Var[theta] cross-term ONLY (notes §3.6).
+                # E[A^2]: Var[theta] cross-term ONLY.
                 E_A_sq = xp.square(theta_v) + Var_theta @ E_v_sq.T
                 c_new = xp.sqrt(xp.maximum(E_A_sq, 1e-12))
                 wbar_new = omega_bar(c_new)                  # (n_new, kappa)
@@ -2663,14 +2657,14 @@ class CAVI:
     def predict_proba(self, X_new, X_aux_new=None, n_iter=20, **_ignored):
         """Predict P(y=1 | X_new).
 
-        Per PDF (A.18), uses the Gaussian–logistic (probit-style)
-        approximation to integrate σ(A) over q(A):
+        Uses the Gaussian–logistic (probit-style) approximation to integrate
+        σ(A) over q(A):
 
             P(y=1) ≈ σ( E_q[A] / sqrt(1 + (π/8) Var_q[A]) ).
 
         Var_q[A] includes the full posterior variance contributions of θ,
-        υ, and γ (the same three pieces as (A.15)). Fold-in for θ is
-        Poisson-only (label-blind; matches Algorithm 2 / Eq. A.17).
+        υ, and γ — the same three pieces the training-time tilt uses.
+        Fold-in for θ is Poisson-only and therefore label-blind.
         """
         if sp.issparse(X_new):
             X_coo = X_new.tocoo()
@@ -2700,7 +2694,7 @@ class CAVI:
             logits = logits + X_aux_new @ self.mu_gamma.T
 
         E_v_sq = mu_v_2d ** 2 + sv_2d
-        # Full second-moment decomposition of A (matches (A.15)).
+        # Full second-moment decomposition of A (matches the training-time tilt).
         var_logits = Var_theta @ E_v_sq.T + xp.square(E_theta) @ sv_2d.T
         if self.p_aux > 0:
             # Full quadratic form x^T Σ_γk x per row, k.
@@ -2809,8 +2803,8 @@ class CAVI:
                   supervised=False, **kwargs):
         """Infer theta for new data. Returns dict with E_theta, a_theta, b_theta.
 
-        Default ``supervised=False`` matches PDF Algorithm 2 / Eq. (A.17):
-        label-blind Poisson-only fold-in for inductive evaluation. Pass
+        Default ``supervised=False`` is the label-blind Poisson-only fold-in
+        used for inductive evaluation. Pass
         ``supervised=True`` only when you intentionally want the trained υ
         to shape test θ (training-regime diagnostic; leaks via E[υ²]).
         """

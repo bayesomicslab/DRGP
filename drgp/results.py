@@ -1,4 +1,4 @@
-"""Metric computation and the DRGP output-artifact contract (extracted from utils.py)."""
+"""Metric computation and the DRGP output-artifact contract."""
 
 import os
 import gzip
@@ -213,7 +213,7 @@ def plot_training_curves(model, save_dir, fname="training_curves.png"):
             holl_data['bern'] = [e[4] for e in model.holl_history_]
 
     # Only the ELBO panel is shown: it is the quantity CAVI actually optimizes and the one a
-    # reader needs to judge convergence. The held-out-LL panel duplicated that story.
+    # reader needs to judge convergence.
     fig, axes = plt.subplots(1, 1, figsize=(7, 5), squeeze=False)
 
     def _plot_elbo(ax, iters, data, title_suffix=''):
@@ -280,13 +280,15 @@ def plot_diagnostics(diagnostics, save_dir, fname="diagnostics.png"):
     """
     Generate diagnostic plots for model quality assessment.
 
-    Plots (3x2 grid):
+    Plots (4x2 grid):
     1. Train theta L1 norm distribution over iterations
-    2. zeta saturation and lambda(zeta) over iterations
+    2. wbar (Polya-Gamma posterior mean) over iterations
     3. True validation logistic loss vs PG-CAVI bound
     4. eta vs gene total counts (mask consistency)
     5. E[eta] range over iterations (eta-beta collapse detector)
     6. E[beta] range over iterations
+    7. v (program weights) convergence trace
+    8. gamma (covariate weights) convergence trace
 
     Parameters
     ----------
@@ -321,7 +323,7 @@ def plot_diagnostics(diagnostics, save_dir, fname="diagnostics.png"):
     ax.set_title('Train theta L1 norms')
     ax.legend()
 
-    # --- Plot 2: (was zeta saturation; zeta removed in PG-CAVI — plot wbar instead) ---
+    # --- Plot 2: wbar, the Polya-Gamma posterior mean ---
     ax = axes[0, 1]
     if diag.get('wbar_stats'):
         iters, wmins, wmeds, wmaxs = zip(*diag['wbar_stats'])

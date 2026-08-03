@@ -3,8 +3,8 @@
 Regression test for a bug where _nb_resample used raw activity (which already carries the
 theta_base floor baked in by draw_activity) instead of the centered deviation. Left uncentered,
 every carrier gene -- including genes with zero loading -- picks up a uniform bias from
-theta_base itself, corrupting the planted signal. The source implementation
-(Simulations/dataset.py:perturb_and_sample) computes `A_dev = theta_star - config.THETA_BASE`.
+theta_base itself, corrupting the injected signal. The correct form is
+`A_dev = theta_star - THETA_BASE`.
 """
 import numpy as np
 from drgp.simulation.background import ParametricBackground

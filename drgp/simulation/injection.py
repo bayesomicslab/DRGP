@@ -1,4 +1,4 @@
-"""Perturbation operators: plant program signal into the background counts.
+"""Perturbation operators: inject program signal into the background counts.
 
 Two irreducible implementations, selected by InjectionSpec.operator:
 
@@ -33,7 +33,7 @@ def _nb_resample(background, loadings, activity, spec, rng, theta_base=0.0):
         raise TypeError("nb_resample requires a ParametricBackground (mu + dispersion)")
     mu = np.asarray(background.mu, dtype=np.float32)
     A_dev = (np.asarray(activity, dtype=np.float32) - theta_base)
-    # Perturb only genes carried by at least one program, matching the source implementation.
+    # Perturb only genes carried by at least one program.
     carried = np.flatnonzero(np.abs(loadings).sum(axis=1) > 0)
     log_lam = np.log(np.maximum(mu, 1e-6))
     log_lam[:, carried] += spec.delta * (A_dev @ loadings[carried].T)

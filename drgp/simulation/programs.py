@@ -1,8 +1,8 @@
 """Gene-program ground truth: supports, signed loadings, polarity, and the pathway mask.
 
-Merges Simulations/truths.py:draw_truth and bulk_gtex_sim/make_truth.py -- the two implemented the
-same algorithm (disjoint variable-length supports from one permutation; |loading| ~ Unif[lo,hi];
-sign by per-program polarity) and differed only in size range and loading scale.
+Supports are disjoint variable-length blocks carved out of a single permutation of the gene index;
+|loading| ~ Unif[lo, hi], with the sign set by each program's polarity. The single-cell and bulk
+configurations use the same algorithm and differ only in size range and loading scale.
 
 Polarity is independent of the disease weight upsilon: a program can be down-regulated yet
 risk-increasing. Non-negative factor models cannot represent a down-regulated program as a single

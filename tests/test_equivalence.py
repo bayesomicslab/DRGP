@@ -104,7 +104,7 @@ def test_end_to_end_single_cell_runs():
 def test_orchestrator_passes_theta_base_to_inject():
     """ORCHESTRATOR-LEVEL theta_base contract guard.
 
-    The Task-11 fix centers single-cell activity by theta_base inside inject()
+    Single-cell activity is centered by theta_base inside inject()
     (A_dev = activity - theta_base). draw_activity floors every non-active cell at theta_base,
     so after centering a NON-ACTIVE cell of program l contributes A_dev=0 and its carried genes
     stay at the UNPERTURBED background mean mu. If simulate() forgets to forward theta_base, every

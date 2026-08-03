@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Build the shipped toy dataset from one of the paper's single-cell simulations.
+"""Build the shipped toy dataset from a DRGP single-cell simulation.
 
 Produces a small, self-contained example that exercises all three DRGP modes:
 
@@ -18,7 +18,7 @@ Design constraints (each one matters):
     enough groups to be meaningful and the inherited-label structure is preserved.
   * .uns truth is REMAPPED to the toy's gene indices, so `S_ell` / `mask_M` still index correctly.
 
-Source: the high-signal configuration reported in the paper (w_Z=0.7, r=0.30, rho=0.3, truth 0).
+Source: the high-signal simulation configuration (w_Z=0.7, r=0.30, rho=0.3, truth 0).
 
 Run:  python make_toy_data.py
 """

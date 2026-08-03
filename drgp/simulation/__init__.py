@@ -62,7 +62,7 @@ def simulate(spec: SimSpec, background, aux_score=None) -> SimResult:
 
     # theta_base is load-bearing: inject() centers single-cell activity by it (A_dev = activity -
     # theta_base) so the theta_base floor does not become a uniform bias on every carrier gene.
-    # Omitting it silently reintroduces the Task-11 centering bug. See injection._nb_resample.
+    # See injection._nb_resample.
     counts = inject(background, truth.loadings, activity, spec.injection, rng,
                     theta_base=spec.activity.theta_base)
 

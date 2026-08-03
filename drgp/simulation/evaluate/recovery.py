@@ -28,7 +28,7 @@ def support_auprc(beta_hat: np.ndarray, S_star: list[np.ndarray],
     """Scale-free membership recovery: rank genes by |beta_hat[:, assign[l]]|, label = in S_l,
     score by average precision (AUPRC). Unlike the magnitude cosine -- which is dominated by the
     coefficient-of-variation of the loadings on the carrier support and so rewards a flat profile
-    rather than recovery (see recovery_reframe.py) -- AUPRC depends only on the gene ranking and is
+    rather than recovery -- AUPRC depends only on the gene ranking and is
     comparable across methods. Chance level is the support prevalence |S_l| / p."""
     p = beta_hat.shape[0]
     out = []

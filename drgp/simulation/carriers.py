@@ -1,9 +1,9 @@
-"""Beta-propensity carrier assignment (paper Eqs 1-3) and single-cell composition.
+"""Beta-propensity carrier assignment and single-cell composition.
 
-    p_g      ~ Beta(alpha, beta)                               (Eq 1)
-    p~_gl    = sigmoid(logit(p_g) + u_gl),  u ~ N(0, sigma_u^2) (Eq 2)
-    c_gl     ~ Bernoulli(q0 + (q1-q0) * lam * p~_gl)   disease  (Eq 3)
-    c_gl     ~ Bernoulli(nuisance_rate)                nuisance (Eq 3)
+    p_g      ~ Beta(alpha, beta)                                subject propensity
+    p~_gl    = sigmoid(logit(p_g) + u_gl),  u ~ N(0, sigma_u^2)  per-program jitter
+    c_gl     ~ Bernoulli(q0 + (q1-q0) * lam * p~_gl)   disease carrier
+    c_gl     ~ Bernoulli(nuisance_rate)                nuisance carrier
 
 The per-program jitter sigma_u is load-bearing: without it the disease carrier vectors collapse to
 a shared indicator, the programs become collinear, and recovery deflates.

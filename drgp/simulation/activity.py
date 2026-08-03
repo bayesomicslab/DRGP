@@ -1,6 +1,6 @@
 """Program activity: how carriage becomes per-unit program strength.
 
-Single-cell (paper Eq. 7): a cell is active for program l only if its group carries l, the cell is
+Single-cell: a cell is active for program l only if its group carries l, the cell is
 a responder type for l, and the cell falls in a random rho-fraction of that group's eligible cells.
 Magnitude is Gamma(alpha_b, lambda_b)/mean on top of a theta_base floor.
 

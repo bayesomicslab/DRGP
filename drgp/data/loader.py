@@ -120,7 +120,7 @@ class DataLoader:
         Detect if data_path is a simulated CSV dataset.
 
         Detection heuristics (in order):
-        1. Path contains 'simulated' (original behaviour).
+        1. Path contains 'simulated'.
         2. Path is a .csv or .csv.gz file.
         3. Path parent/ancestors contain 'scdesign' or 'simulation'.
 
@@ -136,7 +136,7 @@ class DataLoader:
 
         path_lower = str(self.data_path).lower()
 
-        # Original heuristic
+        # Path itself contains 'simulated'
         if 'simulated' in path_lower:
             return True
 
@@ -931,7 +931,7 @@ class DataLoader:
                 train_subsample_ratio=train_subsample_ratio,
             )
 
-        # ---- Legacy cell-level splitting ----
+        # ---- Cell-level splitting (no patient grouping requested) ----
 
         # Get stratification labels if specified
         stratify = None
@@ -1073,10 +1073,10 @@ class DataLoader:
         if stratify_by is not None:
             if patient_column in obs.columns and stratify_by in obs.columns:
                 # Group by the STRING-cast patient column so the resulting
-                # index matches `patients` (which are sorted strings — see
-                # line 1255). Without this, an int patient_id column
-                # produces an int-indexed groupby and `.loc[patients, ...]`
-                # KeyErrors with a list of string keys.
+                # index matches `patients`, which are sorted strings. Without
+                # this, an int patient_id column produces an int-indexed
+                # groupby and `.loc[patients, ...]` KeyErrors with a list of
+                # string keys.
                 patient_col_str = obs_active[patient_column].astype(str)
                 first_per_patient = obs_active.groupby(patient_col_str).first()
                 patient_stratify = first_per_patient.loc[patients, stratify_by].values

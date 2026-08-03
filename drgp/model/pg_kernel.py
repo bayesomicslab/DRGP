@@ -85,17 +85,15 @@ def pg_tilt(E_design, Var_design, mu_v, sigma_v_diag, mu_gamma, Sigma_gamma,
             X_aux, row_chunk):
     """Returns (c, wbar, row_chunk_used).
 
-    Full second moment (MD §10 / PDF (A.15)):
+    Full second moment:
 
         c²_{ik} = (E[A_{ik}])²
                 + Σ_ℓ [ Var(design_{iℓ})·E[υ²_{kℓ}] + E[design_{iℓ}]²·τ²_{υkℓ} ]
                 + x_aux_i^T Σ_{γk} x_aux_i
 
     All three variance pieces are required: dropping the υ- or γ-variance
-    leaves c² as only a partial second moment and breaks the L_sup
-    residual identity (MD §13.2; PDF: "Retaining all three variance terms
-    is necessary for the tilt to equal the full second moment, so that
-    the residual in Eq. (A.16) vanishes at the optimum").
+    leaves c² as only a partial second moment. The tilt must equal the full
+    second moment for the L_sup residual to vanish at the optimum.
     """
     units = E_design.shape[0]
     min_chunk = _min_chunk(units)
@@ -114,9 +112,9 @@ def pg_tilt(E_design, Var_design, mu_v, sigma_v_diag, mu_gamma, Sigma_gamma,
                 E_A_c = E_A_c + X_aux[i0:i1] @ mu_gamma.T
             # θ-variance × E[υ²]
             E_A_sq_c = xp.square(E_A_c) + Var_design[i0:i1] @ E_v_sq.T
-            # E[θ]² × Var(υ)  (missing previously)
+            # E[θ]² × Var(υ)
             E_A_sq_c = E_A_sq_c + xp.square(E_design_c) @ sigma_v_diag_T
-            # x_aux^T Σ_γk x_aux  (missing previously)
+            # x_aux^T Σ_γk x_aux
             if has_aux:
                 X_aux_c = X_aux[i0:i1]
                 aux_var_c = xp.zeros((i1 - i0, mu_v.shape[0]))
@@ -168,11 +166,10 @@ def pg_R_correction(E_design, mu_v, sigma_v_diag, mu_gamma, X_aux, wbar,
         b'² − b_full·b' − 2·R_q·(a+1) = 0
     so the discriminant is b_full² + 8·R_q·(a+1). The consumer solves
         b² − b_base·b − R_quad·a = 0  ⇒  disc = b_base² + 4·R_quad·a
-    which requires R_quad = 2·R_q = ω̄·E[v²]. The earlier 0.5·ω̄·E[v²] form
-    halved the quadratic brake on b_θ; on small data b_base² dominates so
-    the bug was invisible, but at 10⁵⁺ cell scale b_θ floors and E[θ]
-    diverges. The JJ predecessor (commit 0429d77) had R_quad = 2λ·E[v²] =
-    ω̄·E[v²]; this matches.
+    which requires R_quad = 2·R_q = ω̄·E[v²]. The factor of 2 is load-bearing:
+    halving it weakens the quadratic brake on b_θ, which is masked on small
+    data where b_base² dominates but at 10⁵⁺ cell scale lets b_θ hit its floor
+    and E[θ] diverge.
     """
     units = E_design.shape[0]
     y_exp = y if y.ndim > 1 else y[:, None]
@@ -217,8 +214,8 @@ def pg_R_correction(E_design, mu_v, sigma_v_diag, mu_gamma, X_aux, wbar,
 
 
 # =========================================================================
-# pg_R_correction_normalized — Plan A (Route A): θ-rate on the L1-normalized
-# design s = θ/T, T = ‖θ‖₁. The logit is A_ik = s_i·v_k + x_aux_i·γ_k, so θ
+# pg_R_correction_normalized — θ-rate on the L1-normalized design
+# s = θ/T, T = ‖θ‖₁. The logit is A_ik = s_i·v_k + x_aux_i·γ_k, so θ
 # enters A only through the simplex; the supervised rate-shift uses the
 # chain-rule sensitivity G_ikℓ = ∂A_ik/∂θ_iℓ = (v_kℓ − P_ik)/T_i in place of
 # v_kℓ (P_ik = Σ_m s_im v_km = the program logit). Gauss–Newton curvature
@@ -230,8 +227,6 @@ def pg_R_correction(E_design, mu_v, sigma_v_diag, mu_gamma, X_aux, wbar,
 #
 # No (chunk,κ,K) tensor: for any per-k coefficient c_ik,
 #   Σ_k c_ik G_ikℓ = [ (c @ v)_iℓ − rowsum_k(c·P)_i ] / T_i.
-#
-# Derivation + GN/Fisher justification: docs/PLAN_A_normalized_design_FUTURE_WORK.md.
 # =========================================================================
 def pg_R_correction_normalized(E_theta, mu_v, sigma_v_diag, mu_gamma, X_aux,
                                wbar, y, sample_weights, effective_rw, row_chunk):
@@ -311,8 +306,8 @@ def pg_update_v(E_design, Var_design, mu_v, sigma_v_diag, mu_gamma,
 
     The prior on υ_kℓ is the Gaussian-exponential scale mixture
     υ_kℓ | s_kℓ ~ N(0, s_kℓ), s_kℓ ~ Exp(1/2b_v²), which marginalizes to
-    Laplace(0, b_v). The optimal q(s_kℓ⁻¹) is inverse-Gaussian (MD §9.2 /
-    PDF (A.14)), whose mean supplies the only required moment:
+    Laplace(0, b_v). The optimal q(s_kℓ⁻¹) is inverse-Gaussian, whose mean
+    supplies the only required moment:
 
         E_q[s_kℓ⁻¹] = 1 / (b_v · ω_kℓ),    ω_kℓ = sqrt(μ²_υkℓ + τ²_υkℓ).
 
@@ -321,7 +316,7 @@ def pg_update_v(E_design, Var_design, mu_v, sigma_v_diag, mu_gamma,
       = effective_rw · [Σ_i W_ik (y_ik - 0.5) E[design_iℓ]
                        - 2 Σ_i W_ik (ω̄_ik/2) ((design_v_ik) E[design_iℓ] - v_kℓ E[design_iℓ]²)]
 
-    Common-error guard (MD §13.1): E[s⁻¹] is the single IG-mean term, not
+    Common-error guard: E[s⁻¹] is the single IG-mean term, not
     the spurious μ⁻¹+λ⁻¹ expansion; it is the *precision* 1/s that is IG,
     not s itself.
     """
@@ -478,9 +473,9 @@ def pg_Lsup(E_design, Var_design, mu_v, sigma_v_diag, mu_gamma, Sigma_gamma,
       L_sup = Σ_ik W_ik [ (y_ik - 0.5) E[A_ik]  -  (ω̄_ik/2) E[A²_ik]
                           + (ω̄_ik/2) c²_ik  -  c_ik/2  +  log σ(c_ik) ]
 
-    E[A²] uses the *full* second moment (MD §10 / PDF A.15) — same as
-    pg_tilt — so that at the c-tilt optimum c² = E[A²] and the JJ residual
-    `(ω̄/2)(E[A²] - c²)` vanishes exactly (MD §13.2).
+    E[A²] uses the *full* second moment — same as pg_tilt — so that at the
+    c-tilt optimum c² = E[A²] and the JJ residual `(ω̄/2)(E[A²] - c²)`
+    vanishes exactly.
     """
     units = E_design.shape[0]
     y_exp = y if y.ndim > 1 else y[:, None]

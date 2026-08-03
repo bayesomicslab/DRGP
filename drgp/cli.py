@@ -76,13 +76,12 @@ def main(argv=None):
     if args.pathway_file:
         # load_pathways only returns a mask over the genes that survive its
         # OWN filtering (a subset of gene_list, in a different order) -- it
-        # is NOT already aligned to the expression matrix's gene axis. Align
-        # it here the same way quick_reference.py does: scatter the pathway
-        # x pathway-gene matrix into a pathway x full-gene-list matrix.
-        # use_cache=False: a published CLI must not write outside --output-dir.
-        # load_pathways defaults to caching content-hashed pickles under a
-        # shared per-user cache dir -- not appropriate for a
-        # release entry point that may run anywhere.
+        # is NOT already aligned to the expression matrix's gene axis, so the
+        # pathway x pathway-gene matrix is scattered below into a
+        # pathway x full-gene-list matrix.
+        # use_cache=False: a published CLI must not write outside --output-dir,
+        # and load_pathways otherwise caches content-hashed pickles under a
+        # shared per-user cache dir.
         pathway_mat, pw_names, pathway_genes = load_pathways(
             gmt_path=args.pathway_file, gene_filter=gene_list,
             convert_to_ensembl=not args.pathway_genes_ensembl,
@@ -106,9 +105,8 @@ def main(argv=None):
               f"density={mask.mean()*100:.2f}%, "
               f"genes covered={int((pathways_per_gene > 0).sum())}")
 
-        # Masked mode: restrict X to pathway-covered genes only (matches
-        # quick_reference.py -- non-pathway genes only add Poisson noise
-        # since their beta is forced to ~0 anyway).
+        # Masked mode: restrict X to pathway-covered genes only -- non-pathway
+        # genes only add Poisson noise since their beta is forced to ~0 anyway.
         if args.mode == "masked":
             keep_idx = np.where(pathways_per_gene > 0)[0]
             X_train = X_train[:, keep_idx]
