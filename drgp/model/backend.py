@@ -6,7 +6,7 @@ back to NumPy/SciPy equivalents when JAX is not installed.
 
 Usage::
 
-    from .backend import (
+    from.backend import (
         xp, USE_JAX, to_device, to_numpy,
         digamma, gammaln, logsumexp_rows, softmax_rows,
         log_expit, omega_bar, scatter_add_to, phi_chunk_core,

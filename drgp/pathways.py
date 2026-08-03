@@ -40,33 +40,33 @@ def load_pathways(
 
     Parameters
     ----------
-    gmt_path : str
+    gmt_path: str
         Path to GMT file. Can be the full C2 collection or a pre-filtered
         subset GMT (e.g. from results/pathway_selections/). Required --
         no repository-specific default is shipped.
-    convert_to_ensembl : bool, default=True
+    convert_to_ensembl: bool, default=True
         Convert gene symbols to Ensembl IDs.
-    species : str, default='human'
+    species: str, default='human'
         Species for gene ID conversion.
-    gene_filter : list of str, optional
+    gene_filter: list of str, optional
         If provided, only include genes in this list. Useful for filtering
         to genes present in expression data.
-    min_genes : int, default=5
+    min_genes: int, default=5
         Minimum number of genes for a pathway to be included.
-    max_genes : int, default=500
+    max_genes: int, default=500
         Maximum number of genes for a pathway to be included.
-    cache_dir : str, default=~/.cache/drgp/pathways
+    cache_dir: str, default=~/.cache/drgp/pathways
         Directory for caching converted pathways.
-    use_cache : bool, default=True
+    use_cache: bool, default=True
         Whether to use cached converted pathways.
-    excluded_keywords : list of str, optional
+    excluded_keywords: list of str, optional
         Exclude pathways containing any of these keywords (case-insensitive).
         Default: ["ADME", "DRUG", "MISCELLANEOUS", "EMT"]
-    require_prefix : str, optional
+    require_prefix: str, optional
         If provided, only keep pathways starting with this prefix.
         Default: None (keep all sources). Set to 'REACTOME' to restrict
         to Reactome pathways only.
-    pathway_selection : str, optional
+    pathway_selection: str, optional
         Path to a text file listing pathway names to keep (one per line),
         or a pre-filtered GMT file. When provided, only pathways whose names
         appear in this file are retained. This is applied before all other
@@ -75,12 +75,12 @@ def load_pathways(
 
     Returns
     -------
-    pathway_mat : np.ndarray
+    pathway_mat: np.ndarray
         Binary matrix (n_pathways, n_genes) where pathway_mat[i,j]=1 if
         gene j is in pathway i.
-    pathway_names : list of str
+    pathway_names: list of str
         Pathway names corresponding to rows.
-    gene_names : list of str
+    gene_names: list of str
         Gene names (Ensembl or symbol) corresponding to columns.
     """
     import hashlib
@@ -264,7 +264,7 @@ def load_pathways(
                         n_dropped_large += 1
 
             print(f"  After adaptive filter (small<{SMALL_PATHWAY_THRESHOLD}: ≥{MIN_GENES_SMALL}; "
-                  f"large: ≥50%): {len(pathways_adaptive)} pathways "
+                  f"large: full support): {len(pathways_adaptive)} pathways "
                   f"(dropped {n_dropped_small} small, {n_dropped_large} large)")
             pathways = pathways_adaptive
 

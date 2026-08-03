@@ -69,13 +69,13 @@ def _row_chunk_size(n, K, n_intermediates=2, target_gb=None):
 
     Parameters
     ----------
-    n : int
+    n: int
         Total number of rows (cells).
-    K : int
+    K: int
         Number of factors.
-    n_intermediates : int
+    n_intermediates: int
         Number of simultaneous (chunk, K) temporaries at peak.
-    target_gb : float or None
+    target_gb: float or None
         Memory budget in GiB.  ``None`` auto-selects based on backend.
     """
     if target_gb is None:
@@ -212,7 +212,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
     _E_log_beta_raw = digamma(a_beta) - xp.log(b_beta)
     _E_beta_raw = a_beta / b_beta
 
-    # Gamma prior on slab beta_tilde (Eq. 48 — NOT weighted by rho)
+    # Gamma prior on slab beta_tilde
     _beta_prior_terms = ((c_prior - 1) * _E_log_beta_raw
                          + c_prior * E_log_eta[:, None]
                          - E_eta[:, None] * _E_beta_raw)
@@ -224,7 +224,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         out = out - p * K * gammaln(c_prior)
 
     if use_spike_slab:
-        # Beta prior on pi_j (Eq. 46) — per-gene
+        # Beta prior on pi_j — per-gene
         _E_log_pi = digamma(a_pi) - digamma(a_pi + b_pi)
         _E_log_1mpi = digamma(b_pi) - digamma(a_pi + b_pi)
         out = out + xp.sum((alpha_pi - 1) * _E_log_pi
@@ -232,7 +232,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         out = out - p * (gammaln(alpha_pi) + gammaln(beta_pi)
                          - gammaln(alpha_pi + beta_pi))
 
-        # Bernoulli prior on m (Eq. 47) — free factors only
+        # Bernoulli prior on m — free factors only
         _m_prior = (r_beta * _E_log_pi[:, None]
                     + (1.0 - r_beta) * _E_log_1mpi[:, None])
         if pw_active is not None:
@@ -243,7 +243,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         else:
             out = out + xp.sum(_m_prior)
 
-        # Entropy of q(m_{jk}) = Bernoulli(r_{jk}) (Eq. 56) — free factors only
+        # Entropy of q(m_{jk}) = Bernoulli(r_{jk}) — free factors only
         _r_clip = xp.clip(r_beta, 1e-7, 1 - 1e-7)
         _m_entropy = (_r_clip * xp.log(_r_clip)
                       + (1 - _r_clip) * xp.log(1 - _r_clip))
@@ -255,7 +255,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
         else:
             out = out - xp.sum(_m_entropy)
 
-        # Entropy of q(pi_j) = Beta(a_pi_j, b_pi_j) (Eq. 57) — per-gene
+        # Entropy of q(pi_j) = Beta(a_pi_j, b_pi_j) — per-gene
         _H_pi = (gammaln(a_pi) + gammaln(b_pi)
                   - gammaln(a_pi + b_pi)
                   - (a_pi - 1) * digamma(a_pi)
@@ -263,7 +263,7 @@ def _elbo_beta_block(*, a_beta, b_beta, E_log_eta, E_eta, c_prior, p, K,
                   + (a_pi + b_pi - 2) * digamma(a_pi + b_pi))
         out = out + xp.sum(_H_pi)
 
-    # Entropy of q(beta_tilde_{jk}) — NOT weighted by rho (Eq. 55)
+    # Entropy of q(beta_tilde_{jk}) — NOT weighted by rho
     _psi_a_beta = digamma(a_beta)
     _beta_entropy = (a_beta - xp.log(b_beta)
                      + gammaln(a_beta)
@@ -332,7 +332,7 @@ def _elbo_v_block(*, mu_v, sigma_v_diag, b_v):
 
 
 def _elbo_gamma_aux_block(*, mu_gamma, Sigma_gamma, sigma_gamma, kappa, p_aux):
-    """γ Gaussian prior + entropy (Eq. 53)."""
+    """γ Gaussian prior + entropy."""
     if p_aux <= 0:
         return 0.0
     sigma_gamma_sq = sigma_gamma ** 2
@@ -354,32 +354,32 @@ class CAVI:
 
     Parameters
     ----------
-    n_factors : int
+    n_factors: int
         Number of latent factors K.
-    a : float
+    a: float
         Gamma shape prior for theta (cell loadings). Default 0.3 (scHPF).
-    ap : float
+    ap: float
         Gamma shape prior for xi (cell capacity). Default 1.0.
-    c : float
+    c: float
         Gamma shape prior for beta (gene loadings). Default 0.3 (scHPF).
-    cp : float
+    cp: float
         Gamma shape prior for eta (gene capacity). Default 1.0.
-    b_v : float
+    b_v: float
         Laplace prior scale for v (Bayesian Lasso regression weights).
         Smaller b_v = stronger sparsity. Var[v] = 2*b_v^2.
-    sigma_gamma : float
+    sigma_gamma: float
         Gaussian prior std for gamma (auxiliary covariate weights).
-    regression_weight : float
+    regression_weight: float
         Base scalar weight for the classification term.  Auto-scaled
         by nnz/n in fit() so regression gradient magnitude is comparable
         to the Poisson reconstruction gradient.
-    use_class_weights : bool
+    use_class_weights: bool
         If True, apply balanced class weights per label to the Bernoulli
         regression loss.  Positive samples for label k are weighted by
         n / (2 * n_pos_k) and negatives by n / (2 * n_neg_k), so the
         total weighted count per label stays the same but rare classes
         contribute proportionally more.
-    mode : str
+    mode: str
         'unmasked', 'masked', 'pathway_init', 'combined'.
     """
 
@@ -454,7 +454,7 @@ class CAVI:
         self._beta_pi_scale = beta_pi_scale  # resolved to K in _initialize
         # pathway_init soft prior: persistent pseudo-count (nats) added to the spike-and-slab
         # inclusion log-odds for pathway carrier genes on the pathway factors EVERY iteration
-        # (Eq. A.6). Unlike the transient a_beta warm-start (overwritten by the first slab
+        #. Unlike the transient a_beta warm-start (overwritten by the first slab
         # update), this survives because r_beta re-enters phi each sweep. lambda=0 -> unmasked;
         # large lambda -> inclusion forced on pathway genes (approaches masked support).
         self.pathway_prior_lambda = float(pathway_prior_lambda)
@@ -634,7 +634,7 @@ class CAVI:
 
         # --- spike-and-slab on beta ---
         if self.use_spike_slab:
-            # pi_j is per-GENE (Eq. 7: pi_j ~ Beta(alpha_pi, beta_pi)), shape (p,).
+            # pi_j is per-GENE), shape (p,).
             # Controls how many programs each gene participates in.
             self.beta_pi = (self._beta_pi_scale if self._beta_pi_scale is not None
                             else max(1.0, float(K) / 10.0 - self.alpha_pi))
@@ -826,14 +826,14 @@ class CAVI:
 
         Modes
         -----
-        masked : Hard constraint — beta priors are suppressed (near-zero)
+        masked: Hard constraint — beta priors are suppressed (near-zero)
             for gene-factor pairs outside the pathway mask.  The mask is
             re-enforced every iteration via ``_enforce_beta_mask``.
-        pathway_init : Soft warm-start — beta shape params (a_beta) are
+        pathway_init: Soft warm-start — beta shape params (a_beta) are
             boosted where the pathway mask is active, giving the model an
             informed starting point.  No mask is enforced during training,
             so beta is free to deviate from the pathway structure.
-        combined : First ``n_pathway_factors`` factors are hard-constrained
+        combined: First ``n_pathway_factors`` factors are hard-constrained
             by the pathway mask (like masked); remaining factors are free
             (like unmasked) for de novo gene program discovery.
         """
@@ -1266,7 +1266,7 @@ class CAVI:
             i1 = min(i0 + self._row_chunk, self.n)
             theta_sum = theta_sum + (self.a_theta[i0:i1] / self.b_theta[i0:i1]).sum(axis=0)
 
-        # Slab update (Eq. 23)
+        # Slab update
         new_a = self.c + z_sum_beta
         if self.use_spike_slab:
             # Pathway factors in combined mode use r=1 (not learned r_beta)
@@ -1311,7 +1311,7 @@ class CAVI:
         # regardless of inclusion, so no rho-weighting).
         # a_eta is set once in _initialize and never changes.
         # b_eta uses raw slab E[beta_tilde] = a_beta/b_beta, NOT weighted
-        # by r_beta (Eq. 29: eta governs slab regardless of inclusion).
+        # by r_beta.
         E_beta_slab = self.a_beta / self.b_beta  # raw slab expectations
         if self._active_beta is not None:
             self.b_eta = self.dp + xp.where(
@@ -1328,8 +1328,8 @@ class CAVI:
         self.b_eta = xp.maximum(self.b_eta, self.dp)
 
     def _update_r_beta(self, z_sum_beta, theta_col_sum):
-        """Update spike-and-slab inclusion probabilities r_{jk} (Eq. 26)."""
-        # Exact CAVI update (Eq. 26): log-odds = prior odds + Poisson slab evidence.
+        """Update spike-and-slab inclusion probabilities r_{jk}."""
+        # Exact CAVI update: log-odds = prior odds + Poisson slab evidence.
         # Beta_tilde prior and entropy cancel between m=1 and m=0 (the slab
         # variable exists regardless of inclusion), so only Poisson terms remain.
         E_log_beta = digamma(self.a_beta) - xp.log(self.b_beta)
@@ -1340,13 +1340,13 @@ class CAVI:
         log_lik_on = (z_sum_beta * E_log_beta
                       - E_beta_raw * theta_col_sum[None, :])
 
-        # Prior log-odds from pi_j (Eq. 26) — pi is per-GENE, shape (p,)
+        # Prior log-odds from pi_j — pi is per-GENE, shape (p,)
         E_log_pi = digamma(self.a_pi) - digamma(self.a_pi + self.b_pi)      # (p,)
         E_log_1mpi = digamma(self.b_pi) - digamma(self.a_pi + self.b_pi)    # (p,)
 
         log_odds = E_log_pi[:, None] - E_log_1mpi[:, None] + log_lik_on    # (p, K)
         # pathway_init soft prior: persistent inclusion pseudo-count on pathway carriers /
-        # pathway factors (Eq. A.6). Survives the data-dominated slab update because it is
+        # pathway factors. Survives the data-dominated slab update because it is
         # re-applied here every sweep, unlike the transient a_beta warm-start.
         if self._pathway_prior is not None:
             log_odds = log_odds + xp.asarray(self._pathway_prior)
@@ -1361,7 +1361,7 @@ class CAVI:
         if self._pw_active is not None:
             self.r_beta = xp.where(self._pw_active, 1.0, self.r_beta)
 
-        # Update pi posterior (Eq. 27) — count only free factors
+        # Update pi posterior — count only free factors
         if self._npath > 0:
             npath = self._npath
             r_sum = self.r_beta[:, npath:].sum(axis=1)
@@ -1709,11 +1709,11 @@ class CAVI:
 
         Returns
         -------
-        total_ll : float
+        total_ll: float
             Mean total LL per sample (Poisson + weighted regression if labels provided).
-        poisson_ll : float
+        poisson_ll: float
             Mean Poisson LL per sample.
-        regression_ll : float or None
+        regression_ll: float or None
             Mean regression LL per sample (before weighting), or None if no labels.
         """
         if sp.issparse(X_val):
@@ -1730,7 +1730,7 @@ class CAVI:
             np.asarray(X_aux_val, dtype=np.float32), n=n_val)
         X_aux_v_dev = to_device(X_aux_val)
 
-        # Validation fold-in: unsupervised (Algorithm 2 / Eq. A.17).
+        # Validation fold-in: unsupervised ( /).
         a_theta_v, b_theta_v = self._infer_theta_sparse(
             X_val_coo, n_val, n_iter, X_aux_new=X_aux_v_dev,
             supervised=False)
@@ -1783,7 +1783,7 @@ class CAVI:
                 E_A = E_A + X_aux_v_dev @ self.mu_gamma.T
 
             E_v_sq = self.mu_v ** 2 + self.sigma_v_diag
-            # Full E[A²] decomposition (matches pg_Lsup / PDF Eq. A.15):
+            # Full E[A²] decomposition (matches pg_Lsup / PDF):
             # (E[A])² + Σ_ℓ[Var(θ)·E[υ²] + E[θ]²·τ²_υ] + x_aux^T Σ_γ x_aux.
             E_A_sq = (
                 E_A ** 2
@@ -1856,26 +1856,26 @@ class CAVI:
 
         Parameters
         ----------
-        X_train : sparse or dense (n, p)
-        y_train : (n,) or (n, kappa)
-        X_aux_train : (n, p_aux) or None
-        X_val, y_val, X_aux_val : validation data (optional)
-        max_iter : int
-        check_freq : int
-        tol : float -- convergence if |pct_change| < tol twice in a row
-        v_warmup : int -- Poisson-only warmup iterations before regression head starts
-        verbose : bool
-        early_stopping : str
+        X_train: sparse or dense (n, p)
+        y_train: (n,) or (n, kappa)
+        X_aux_train: (n, p_aux) or None
+        X_val, y_val, X_aux_val: validation data (optional)
+        max_iter: int
+        check_freq: int
+        tol: float -- convergence if |pct_change| < tol twice in a row
+        v_warmup: int -- Poisson-only warmup iterations before regression head starts
+        verbose: bool
+        early_stopping: str
             'heldout_ll' -- stop on held-out LL / regression LL plateau (default).
             'elbo' -- stop only on ELBO convergence.
             'none' -- disable all early stopping, run all iterations.
-        n_patients : int or None
+        n_patients: int or None
             Number of unique patients in the training set.  When provided
             (patient-grouped scRNA-seq), the Laplace b_v prior is re-scaled
             using n_patients instead of n_cells, giving appropriate
             regularization when cells share patient-level labels.
             None (default) keeps the existing cell-count scaling.
-        patient_ids : array-like of shape (n_cells,) or None
+        patient_ids: array-like of shape (n_cells,) or None
             Maps each training cell to its patient/donor ID.  When provided,
             class weights are recomputed at the patient level (counting
             patients per class, not cells) and each cell is down-weighted by
@@ -2512,8 +2512,7 @@ class CAVI:
                             supervised=False):
         """Infer theta for new data using chunked sparse phi.
 
-        Default (``supervised=False``): Poisson-only fold-in per PDF
-        Algorithm 2 / Eq. (A.17). Since y_new is absent, R_iℓ = 0 and the
+        Default (``supervised=False``): Poisson-only fold-in per PDF / Eq. (A.17). Since y_new is absent, R_iℓ = 0 and the
         rate reduces to b_θ = E[ξ] + Σ_j ρ_jℓ E[β̃_jℓ]. No PG variables
         are required for fold-in. This is the documented, label-blind path
         for inductive evaluation.
@@ -2670,7 +2669,7 @@ class CAVI:
 
         Var_q[A] includes the full posterior variance contributions of θ,
         υ, and γ (the same three pieces as (A.15)). Fold-in for θ is
-        Poisson-only (label-blind; matches Algorithm 2 / Eq. A.17).
+        Poisson-only (label-blind; matches /).
         """
         if sp.issparse(X_new):
             X_coo = X_new.tocoo()
@@ -2725,12 +2724,12 @@ class CAVI:
 
         Parameters
         ----------
-        X_val : sparse or dense (n_val, p)
-        y_val : (n_val,) binary labels for a single outcome
-        X_aux_val : (n_val, p_aux) or None
-        n_iter : int
+        X_val: sparse or dense (n_val, p)
+        y_val: (n_val,) binary labels for a single outcome
+        X_aux_val: (n_val, p_aux) or None
+        n_iter: int
             Iterations for theta inference on new data.
-        method : str
+        method: str
             'platt' (sigmoid recalibration, 2 params) or
             'temperature' (single temperature T).
 
@@ -2776,11 +2775,11 @@ class CAVI:
 
         Parameters
         ----------
-        X_new : sparse or dense (n, p)
-        calibrator : dict
+        X_new: sparse or dense (n, p)
+        calibrator: dict
             Output of fit_calibrator().
-        X_aux_new : (n, p_aux) or None
-        n_iter : int
+        X_aux_new: (n, p_aux) or None
+        n_iter: int
 
         Returns
         -------
@@ -2809,7 +2808,7 @@ class CAVI:
                   supervised=False, **kwargs):
         """Infer theta for new data. Returns dict with E_theta, a_theta, b_theta.
 
-        Default ``supervised=False`` matches PDF Algorithm 2 / Eq. (A.17):
+        Default ``supervised=False`` matches PDF / Eq. (A.17):
         label-blind Poisson-only fold-in for inductive evaluation. Pass
         ``supervised=True`` only when you intentionally want the trained υ
         to shape test θ (training-regime diagnostic; leaks via E[υ²]).

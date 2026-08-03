@@ -57,18 +57,18 @@ class DataLoader:
 
     Parameters
     ----------
-    data_path : str or Path
+    data_path: str or Path
         Path to the h5ad file to load, or a simulated CSV file.
-    gene_annotation_path : str or Path, optional
+    gene_annotation_path: str or Path, optional
         Path to gene annotation CSV for protein-coding filtering.
         Expected columns: 'GeneID' (Ensembl), 'Genetype'.
-    cache_dir : str or Path, optional
+    cache_dir: str or Path, optional
         Directory for caching preprocessed data. Defaults to system temp.
-    species : str, default='human'
+    species: str, default='human'
         Species for gene ID conversion. Options: 'human', 'mouse'.
-    use_cache : bool, default=True
+    use_cache: bool, default=True
         Whether to cache preprocessed data for faster reloading.
-    verbose : bool, default=True
+    verbose: bool, default=True
         Whether to print progress messages.
     """
 
@@ -121,7 +121,7 @@ class DataLoader:
 
         Detection heuristics (in order):
         1. Path contains 'simulated' (original behaviour).
-        2. Path is a .csv or .csv.gz file.
+        2. Path is a.csv or.csv.gz file.
         3. Path parent/ancestors contain 'scdesign' or 'simulation'.
 
         Returns
@@ -237,7 +237,7 @@ class DataLoader:
 
         Parameters
         ----------
-        layer : str, default='raw'
+        layer: str, default='raw'
             Which layer to use for expression data.
 
         Returns
@@ -264,7 +264,7 @@ class DataLoader:
 
     def load_simulated_csv(self, metadata_hints: Optional[List[str]] = None) -> pd.DataFrame:
         """
-        Load simulated data from CSV (.csv or .csv.gz).
+        Load simulated data from CSV (.csv or.csv.gz).
         
         Expected format:
         - Rows: samples/cells
@@ -273,7 +273,7 @@ class DataLoader:
         
         Parameters
         ----------
-        metadata_hints : list of str, optional
+        metadata_hints: list of str, optional
             Column names known to be metadata (e.g. label_column, aux_columns).
             These are forced into metadata even if they have numeric dtype.
         
@@ -344,7 +344,7 @@ class DataLoader:
 
         Parameters
         ----------
-        layer : str, default='raw'
+        layer: str, default='raw'
             Which layer to use. Use None for adata.X.
 
         Returns
@@ -523,7 +523,7 @@ class DataLoader:
 
         Parameters
         ----------
-        min_fraction : float, default=0.001
+        min_fraction: float, default=0.001
             Minimum fraction of cells that must express the gene/pathway.
 
         Returns
@@ -554,11 +554,11 @@ class DataLoader:
 
         Parameters
         ----------
-        target_sum : float, default=0.0
+        target_sum: float, default=0.0
             Target library size (counts per cell will sum to ~this value).
             If 0 or negative, the median library size is used (counts-per-median
             normalization, as in scHPF). This is data-adaptive and recommended.
-        method : str, default='library_size'
+        method: str, default='library_size'
             Normalization method:
             - 'library_size': Divide by cell total, multiply by target_sum.
             - 'median_ratio': DESeq2-style median-of-ratios.
@@ -645,19 +645,19 @@ class DataLoader:
 
         Parameters
         ----------
-        layer : str, default='raw'
+        layer: str, default='raw'
             Which layer to use for expression data.
-        convert_to_ensembl : bool, default=True
+        convert_to_ensembl: bool, default=True
             Whether to convert gene symbols to Ensembl IDs (ignored for pathways/simulated).
-        filter_protein_coding : bool, default=True
+        filter_protein_coding: bool, default=True
             Whether to filter for protein-coding genes (ignored for pathways/simulated).
-        min_cells_expressing : float, default=0.001
+        min_cells_expressing: float, default=0.001
             Minimum fraction of cells expressing each gene/pathway.
-        normalize : bool, default=False
+        normalize: bool, default=False
             Whether to normalize counts (library size normalization + integer rounding).
-        normalize_target_sum : float, default=1e4
+        normalize_target_sum: float, default=1e4
             Target library size for normalization.
-        normalize_method : str, default='library_size'
+        normalize_method: str, default='library_size'
             Normalization method: 'library_size' or 'median_ratio'.
 
         Returns
@@ -760,7 +760,7 @@ class DataLoader:
 
         Parameters
         ----------
-        label_column : str
+        label_column: str
             Column name in adata.obs for labels.
 
         Returns
@@ -794,9 +794,9 @@ class DataLoader:
 
         Parameters
         ----------
-        aux_columns : list of str
+        aux_columns: list of str
             Column names in adata.obs for auxiliary features.
-        aux_missing_values : list of str, optional
+        aux_missing_values: list of str, optional
             Values to treat as missing/uninformative in categorical aux columns.
             These values are collapsed into the reference (dropped) category so
             they don't generate their own dummy column.  Default: ['exclude',
@@ -892,18 +892,18 @@ class DataLoader:
 
         Parameters
         ----------
-        train_ratio : float, default=0.7
+        train_ratio: float, default=0.7
             Proportion for training set.
-        val_ratio : float, default=0.15
+        val_ratio: float, default=0.15
             Proportion for validation set.
-        stratify_by : str, optional
+        stratify_by: str, optional
             Column name in adata.obs for stratified splitting.
-        random_state : int, optional
+        random_state: int, optional
             Random seed for reproducibility. None = random.
-        train_subsample_ratio : float, optional
+        train_subsample_ratio: float, optional
             If set in (0, 1), subsample the training split to this fraction
             before extracting matrices. Validation/test splits are unchanged.
-        patient_column : str, optional
+        patient_column: str, optional
             Column in adata.obs identifying patients/donors (e.g. 'sampleID').
             When set, splits at the **patient level** so no patient appears in
             more than one split, preventing donor leakage.
@@ -1075,7 +1075,7 @@ class DataLoader:
                 # Group by the STRING-cast patient column so the resulting
                 # index matches `patients` (which are sorted strings — see
                 # line 1255). Without this, an int patient_id column
-                # produces an int-indexed groupby and `.loc[patients, ...]`
+                # produces an int-indexed groupby and `.loc[patients,...]`
                 # KeyErrors with a list of string keys.
                 patient_col_str = obs_active[patient_column].astype(str)
                 first_per_patient = obs_active.groupby(patient_col_str).first()
@@ -1189,23 +1189,23 @@ class DataLoader:
 
         Parameters
         ----------
-        cell_ids : list of str
+        cell_ids: list of str
             List of cell IDs to include.
-        label_column : str or list of str
+        label_column: str or list of str
             Column name(s) for labels. If a list with κ>1 entries,
             returns y as (n_cells, κ) for multi-outcome inference.
-        aux_columns : list of str, optional
+        aux_columns: list of str, optional
             Column names for auxiliary features.
-        return_sparse : bool, default=True
+        return_sparse: bool, default=True
             If True, returns X as sparse CSR matrix. If False, returns dense array.
 
         Returns
         -------
-        X : np.ndarray or scipy.sparse.csr_matrix
+        X: np.ndarray or scipy.sparse.csr_matrix
             Expression matrix (n_cells, n_genes). Sparse by default for efficiency.
-        X_aux : np.ndarray
+        X_aux: np.ndarray
             Auxiliary feature matrix (n_cells, n_aux).
-        y : np.ndarray
+        y: np.ndarray
             Label array (n_cells,) for single label, (n_cells, κ) for multi-label.
         """
         if self.raw_df is None and not hasattr(self, '_sparse_X'):
@@ -1297,39 +1297,39 @@ class DataLoader:
 
         Parameters
         ----------
-        label_column : str, default='t2dm'
+        label_column: str, default='t2dm'
             Column name in adata.obs for labels.
-        aux_columns : list of str, optional
+        aux_columns: list of str, optional
             Column names for auxiliary features (e.g., ['Sex']).
-        train_ratio : float, default=0.7
+        train_ratio: float, default=0.7
             Proportion for training set.
-        val_ratio : float, default=0.15
+        val_ratio: float, default=0.15
             Proportion for validation set.
-        stratify_by : str, optional
+        stratify_by: str, optional
             Column for stratified splitting.
-        patient_column : str, optional
+        patient_column: str, optional
             Column in adata.obs identifying patients/donors. When set, splits
             at the patient level to prevent donor leakage.
-        min_cells_expressing : float, default=0.001
+        min_cells_expressing: float, default=0.001
             Minimum fraction of cells expressing each gene.
-        layer : str, default='raw'
+        layer: str, default='raw'
             Which layer to use.
-        convert_to_ensembl : bool, default=True
+        convert_to_ensembl: bool, default=True
             Whether to convert gene symbols to Ensembl IDs.
-        filter_protein_coding : bool, default=True
+        filter_protein_coding: bool, default=True
             Whether to filter for protein-coding genes.
-        random_state : int, optional
+        random_state: int, optional
             Random seed for splitting. None = random.
-        train_subsample_ratio : float, optional
+        train_subsample_ratio: float, optional
             If set in (0, 1), subsample only the training split to this
             fraction before extracting matrices.
-        normalize : bool, default=False
+        normalize: bool, default=False
             Whether to normalize counts (library size + integer rounding).
-        normalize_target_sum : float, default=1e4
+        normalize_target_sum: float, default=1e4
             Target library size for normalization.
-        normalize_method : str, default='library_size'
+        normalize_method: str, default='library_size'
             Normalization method: 'library_size' or 'median_ratio'.
-        return_sparse : bool, default=True
+        return_sparse: bool, default=True
             If True, returns expression matrices as sparse CSR matrices for memory efficiency.
 
         Returns
@@ -1432,13 +1432,13 @@ def load_data(
 
     Parameters
     ----------
-    data_path : str
+    data_path: str
         Path to h5ad file or simulated CSV file.
-    label_column : str, default='t2dm'
+    label_column: str, default='t2dm'
         Column name for labels (in adata.obs).
-    aux_columns : list of str, optional
+    aux_columns: list of str, optional
         Column names for auxiliary features (in adata.obs).
-    gene_annotation_path : str, optional
+    gene_annotation_path: str, optional
         Path to gene annotation CSV.
     **kwargs
         Additional arguments passed to load_and_preprocess().
@@ -1453,20 +1453,20 @@ def load_data(
     --------
     >>> # Load from h5ad with sparse matrices (default)
     >>> data = load_data(
-    ...     '/path/to/Bcell_GEX.h5ad',
-    ...     label_column='t2dm',
-    ...     aux_columns=['Sex']
-    ... )
+...     '/path/to/Bcell_GEX.h5ad',
+...     label_column='t2dm',
+...     aux_columns=['Sex']
+... )
     >>> X_train, X_aux_train, y_train = data['train']
     >>> # X_train is scipy.sparse.csr_matrix
     >>>
     >>> # Load with dense matrices
     >>> data = load_data(
-    ...     '/path/to/Bcell_GEX.h5ad',
-    ...     label_column='t2dm',
-    ...     aux_columns=['Sex'],
-    ...     return_sparse=False
-    ... )
+...     '/path/to/Bcell_GEX.h5ad',
+...     label_column='t2dm',
+...     aux_columns=['Sex'],
+...     return_sparse=False
+... )
     """
     loader = DataLoader(
         data_path=data_path,

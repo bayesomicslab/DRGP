@@ -78,17 +78,17 @@ class GeneIDConverter:
         
         Parameters:
         -----------
-        gene_symbols : list
+        gene_symbols: list
             List of gene symbols or Ensembl IDs to convert
-        species : str
+        species: str
             Species name (default: 'human')
-        force_update : bool
+        force_update: bool
             If True, bypass cache and force API call
             
         Returns:
         --------
-        dict : mapping of input -> Ensembl ID (or input if already Ensembl)
-        list : list of Ensembl IDs in same order as input
+        dict: mapping of input -> Ensembl ID (or input if already Ensembl)
+        list: list of Ensembl IDs in same order as input
         """
         # Detect format
         gene_format = self._detect_gene_format(gene_symbols)
@@ -158,17 +158,17 @@ class GeneIDConverter:
         
         Parameters:
         -----------
-        ensembl_ids : list
+        ensembl_ids: list
             List of Ensembl IDs or gene symbols to convert
-        species : str
+        species: str
             Species name (default: 'human')
-        force_update : bool
+        force_update: bool
             If True, bypass cache and force API call
             
         Returns:
         --------
-        dict : mapping of Ensembl ID -> symbol (or input if already symbol)
-        list : list of symbols in same order as input
+        dict: mapping of Ensembl ID -> symbol (or input if already symbol)
+        list: list of symbols in same order as input
         """
         # Detect format
         gene_format = self._detect_gene_format(ensembl_ids)
