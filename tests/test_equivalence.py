@@ -17,6 +17,17 @@ def _src_on_path():
 
 
 def _source_available():
+    """Probe for the source tree, putting SRC on the path FIRST.
+
+    This runs at collection time, before the autouse fixture, so it cannot rely on that
+    fixture having inserted SRC. Previously it did, which meant the probe failed and the whole
+    equivalence gate silently SKIPPED on any machine that did not already export
+    PYTHONPATH=<src>. A gate that reports "2 skipped" instead of "2 failed" is worse than no
+    gate, so the path insert is duplicated here deliberately.
+    """
+    import sys
+    if SRC not in sys.path:
+        sys.path.insert(0, SRC)
     try:
         import VariationalInference.Simulations.config  # noqa: F401
         return True
