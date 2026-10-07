@@ -72,6 +72,19 @@ class LabelSpec:
 
 
 @dataclass
+class MediationSpec:
+    """How much of the auxiliary (genetic) variance acts THROUGH the programs.
+
+    fraction = 0 is the unmediated design: the auxiliary score touches only the label.
+    fraction = m routes m*w_s of the genetic variance into program activity and leaves
+    (1-m)*w_s acting directly on the liability, holding the TOTAL genetic share at w_s so m
+    is a routing knob rather than a signal-strength knob. See simulation/mediation.py.
+    Requires w_z > fraction*w_s, and the bulk ('identity') aggregation.
+    """
+    fraction: float = 0.0
+
+
+@dataclass
 class SimSpec:
     modality: Modality = "single_cell"
     programs: ProgramSpec = field(default_factory=ProgramSpec)
@@ -79,6 +92,7 @@ class SimSpec:
     activity: ActivitySpec = field(default_factory=ActivitySpec)
     injection: InjectionSpec = field(default_factory=InjectionSpec)
     label: LabelSpec = field(default_factory=LabelSpec)
+    mediation: MediationSpec = field(default_factory=MediationSpec)
     seed: int = 0
 
     @classmethod

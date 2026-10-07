@@ -8,22 +8,23 @@ The modality keyword selects three things and nothing else: how activity is deri
 which injection operator runs, and how the liability score is aggregated. Programs, carriers,
 labels, emission and evaluation are shared.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import numpy as np
 
 from .spec import (SimSpec, ProgramSpec, PropensitySpec, ActivitySpec,
-                   InjectionSpec, LabelSpec)
+                   InjectionSpec, LabelSpec, MediationSpec)
 from .background import RealizedBackground, ParametricBackground
 from .programs import draw_programs, ProgramTruth
 from .carriers import draw_propensity_carriers, draw_composition
 from .activity import draw_activity
 from .injection import inject
 from .labels import liability_label
+from .mediation import mediate_activity, direct_w_s
 from .emit import to_anndata, save_truth
 
 __all__ = ["simulate", "SimSpec", "ProgramSpec", "PropensitySpec", "ActivitySpec",
-           "InjectionSpec", "LabelSpec", "RealizedBackground", "ParametricBackground",
-           "SimResult", "save_truth"]
+           "InjectionSpec", "LabelSpec", "MediationSpec", "RealizedBackground",
+           "ParametricBackground", "SimResult", "save_truth", "mediate_activity"]
 
 
 @dataclass
@@ -33,6 +34,11 @@ class SimResult:
     labels: dict
     activity: np.ndarray
     carriers: np.ndarray
+    # Pre-mediation (binary carrier) activity, and what the mediation actually applied.
+    # activity is what drove BOTH expression and the label; carrier_activity is the recovery
+    # target, so the two must stay distinguishable whenever mediation is on.
+    carrier_activity: np.ndarray = None
+    mediation: dict = None
 
 
 def simulate(spec: SimSpec, background, aux_score=None) -> SimResult:
@@ -57,8 +63,17 @@ def simulate(spec: SimSpec, background, aux_score=None) -> SimResult:
                                  spec.programs.responder_size_hi + 1))
             responder.append(np.sort(rng.choice(n_types, size=min(k, n_types), replace=False)))
 
-    activity = draw_activity(carriers, group, spec.activity, rng,
-                             cell_type=background.cell_type, responder_types=responder)
+    carrier_activity = draw_activity(carriers, group, spec.activity, rng,
+                                     cell_type=background.cell_type,
+                                     responder_types=responder)
+
+    # Mediation perturbs activity BEFORE both injection and labelling, because the whole point
+    # is that the same genetic push appears in expression and in phenotype. The pre-mediation
+    # carrier activity is kept as the recovery target.
+    activity, med = mediate_activity(
+        carrier_activity, truth.upsilon, is_disease, aux_score,
+        spec.mediation.fraction, spec.label.w_z, spec.label.w_s,
+        aggregate=spec.label.aggregate)
 
     # theta_base is load-bearing: inject() centers single-cell activity by it (A_dev = activity -
     # theta_base) so the theta_base floor does not become a uniform bias on every carrier gene.
@@ -66,10 +81,18 @@ def simulate(spec: SimSpec, background, aux_score=None) -> SimResult:
     counts = inject(background, truth.loadings, activity, spec.injection, rng,
                     theta_base=spec.activity.theta_base)
 
-    labels = liability_label(activity, truth.upsilon, spec.label, rng,
+    # Only the DIRECT share reaches the label: the mediated part is already inside the program
+    # score via the perturbed activity, so passing the full w_s would double-count it.
+    label_spec = spec.label
+    if med["fraction"] > 0:
+        label_spec = replace(spec.label, w_s=direct_w_s(spec.label.w_s, med["fraction"]))
+    labels = liability_label(activity, truth.upsilon, label_spec, rng,
                              unit_to_group=group if spec.label.aggregate == "cell_mean" else None,
                              aux_score=aux_score)
+    labels["mediation"] = med["fraction"]
+    labels["w_s_nominal"] = float(spec.label.w_s)
 
     adata = to_anndata(counts, labels, background, truth, spec, aux=aux_score)
     return SimResult(adata=adata, truth=truth, labels=labels,
-                     activity=activity, carriers=carriers)
+                     activity=activity, carriers=carriers,
+                     carrier_activity=carrier_activity, mediation=med)

@@ -215,8 +215,10 @@ spec = SimSpec.for_modality("single_cell")  # or "bulk"
 result = simulate(spec, background)
 
 result.adata           # AnnData: counts (X), obs['y'] label, obs['liability'], truth in .uns
-result.truth           # ProgramTruth: planted loadings, program membership, polarity
+result.truth           # ProgramTruth: simulated loadings, program membership, polarity
 result.labels          # dict: per-unit and per-group liability/label arrays
+result.carrier_activity  # pre-mediation binary carrier activity (the recovery target)
+result.mediation       # dict: kappa, psi, achieved mediated/direct genetic shares
 ```
 
 Bulk mode (`SimSpec.for_modality("bulk")`) uses `RealizedBackground` instead (a fitted SPsimSeq
@@ -230,6 +232,45 @@ which is pure Python/NumPy and needs no R. Every knob (program count/size/polari
 propensity, activity, injection, label liability) is an explicit field on `SimSpec` — see
 `drgp/simulation/spec.py` for the full parameter set and the defaults used in the published
 benchmarks.
+
+### Genetic mediation
+
+By default an auxiliary (e.g. genetic) score enters only the label, never expression, which
+separates genetic attribution from program recovery by construction. That separation is a
+modelling choice: a variant acting through a transcriptional program would appear in both. Set
+`SimSpec.mediation.fraction = m` to route a share of the auxiliary variance through program
+activity instead:
+
+```python
+spec = SimSpec.for_modality("bulk")
+spec.mediation.fraction = 0.5          # half the genetic variance acts through the programs
+result = simulate(spec, background, aux_score=prs)      # prs: (n_subjects,)
+
+result.mediation["kappa"]           # calibrated scale actually applied
+result.mediation["mediated_share"]  # == m * w_s
+result.mediation["direct_share"]    # == (1 - m) * w_s
+```
+
+Activity becomes `a_il = c_il + kappa * psi_l * s~_i`, with `psi_l = sign(upsilon_l)` on
+disease-relevant programs. `kappa` is **solved for**, not set, so that the mediated share is
+exactly `m * w_s`:
+
+```
+kappa = sqrt( m * w_s * sigma_u^2 / (w_z - m * w_s) ) / g,    g = sum over disease |upsilon_l|
+```
+
+where `sigma_u` is the s.d. of the binary-carrier program score. The label then carries only the
+residual direct share `(1 - m) * w_s`, so mediated plus direct equals `w_s` for every `m`. This
+makes `m` a pure **routing** knob — the same total genetic effect moved between the expression
+and label channels — rather than a signal-strength knob, so a change in AUC across `m` is not
+confounded with simply adding more genetic signal. `m = 0` reproduces the unmediated design
+exactly.
+
+Requires `w_z > m * w_s` (the program channel cannot carry a genetic share larger than itself)
+and the bulk `identity` aggregation; under `cell_mean` the activity is standardized across cells
+before averaging, so this calibration would not preserve the total share and the call raises
+rather than applying it. When mediation is on, `result.carrier_activity` holds the pre-mediation
+binary carrier activity, which is the program-recovery target.
 
 Recovery evaluation (Hungarian-matched, scale-free) lives in `drgp.simulation.evaluate`:
 

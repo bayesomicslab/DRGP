@@ -8,8 +8,12 @@ Because every liability component is unit-variance, w_z is exactly the program s
 exactly the auxiliary (genetic) share of liability variance. tau_pi is the (1 - prevalence)
 empirical quantile, fixing prevalence exactly.
 
-The auxiliary score enters ONLY the label, never expression, which is what isolates genetic
-attribution from program recovery.
+By default the auxiliary score enters ONLY the label, never expression, which is what isolates
+genetic attribution from program recovery. That separation is a modelling choice, not a fact:
+set SimSpec.mediation.fraction > 0 to route part of the auxiliary variance through program
+activity instead (simulation/mediation.py). When mediation is on, the w_s reaching this function
+is the DIRECT share (1-m)*w_s -- the mediated part is already inside the z term via the
+perturbed activity, so passing the nominal w_s here would double-count it.
 
 Aggregation differs by modality and is NOT unified, because the choice changes the labels:
   'identity'  (bulk)        standardize the per-unit score directly
